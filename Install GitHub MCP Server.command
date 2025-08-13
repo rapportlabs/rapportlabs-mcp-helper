@@ -58,9 +58,18 @@ if command -v github-mcp-server &> /dev/null; then
     else
         echo "🆕 Update available: $LATEST_VERSION"
         echo ""
-        echo "Would you like to upgrade? (y/n): "
-        read -n 1 UPGRADE_CHOICE
-        echo ""
+        while true; do
+            echo "Would you like to upgrade? (y/n): "
+            read -n 1 UPGRADE_CHOICE
+            echo ""
+            
+            if [[ "$UPGRADE_CHOICE" =~ ^[YyNn]$ ]]; then
+                break
+            else
+                echo "Invalid option. Please enter 'y' or 'n'."
+                echo ""
+            fi
+        done
         
         if [[ ! "$UPGRADE_CHOICE" =~ ^[Yy]$ ]]; then
             echo "Installation cancelled."
@@ -198,9 +207,18 @@ except Exception as e:
 " 2>/dev/null || echo "Could not parse configuration"
         echo "---"
         echo ""
-        echo "Would you like to reconfigure it? (y/n): "
-        read -n 1 RECONFIGURE
-        echo ""
+        while true; do
+            echo "Would you like to reconfigure it? (y/n): "
+            read -n 1 RECONFIGURE
+            echo ""
+            
+            if [[ "$RECONFIGURE" =~ ^[YyNn]$ ]]; then
+                break
+            else
+                echo "Invalid option. Please enter 'y' or 'n'."
+                echo ""
+            fi
+        done
         
         if [[ ! "$RECONFIGURE" =~ ^[Yy]$ ]]; then
             echo ""
@@ -208,9 +226,18 @@ except Exception as e:
         else
             # Reconfigure
             echo ""
-            echo "Do you have a GitHub Personal Access Token (PAT)? (y/n): "
-            read -n 1 HAS_PAT
-            echo ""
+            while true; do
+                echo "Do you have a GitHub Personal Access Token (PAT)? (y/n): "
+                read -n 1 HAS_PAT
+                echo ""
+                
+                if [[ "$HAS_PAT" =~ ^[YyNn]$ ]]; then
+                    break
+                else
+                    echo "Invalid option. Please enter 'y' or 'n'."
+                    echo ""
+                fi
+            done
             
             if [[ "$HAS_PAT" =~ ^[Yy]$ ]]; then
                 echo ""
@@ -271,15 +298,33 @@ except Exception as e:
         # GitHub MCP not configured, ask to add it
         echo "GitHub MCP Server is not configured in Claude Desktop."
         echo ""
-        echo "Would you like to configure it now? (y/n): "
-        read -n 1 CONFIGURE
-        echo ""
+        while true; do
+            echo "Would you like to configure it now? (y/n): "
+            read -n 1 CONFIGURE
+            echo ""
+            
+            if [[ "$CONFIGURE" =~ ^[YyNn]$ ]]; then
+                break
+            else
+                echo "Invalid option. Please enter 'y' or 'n'."
+                echo ""
+            fi
+        done
         
         if [[ "$CONFIGURE" =~ ^[Yy]$ ]]; then
             echo ""
-            echo "Do you have a GitHub Personal Access Token (PAT)? (y/n): "
-            read -n 1 HAS_PAT
-            echo ""
+            while true; do
+                echo "Do you have a GitHub Personal Access Token (PAT)? (y/n): "
+                read -n 1 HAS_PAT
+                echo ""
+                
+                if [[ "$HAS_PAT" =~ ^[YyNn]$ ]]; then
+                    break
+                else
+                    echo "Invalid option. Please enter 'y' or 'n'."
+                    echo ""
+                fi
+            done
             
             if [[ "$HAS_PAT" =~ ^[Yy]$ ]]; then
                 echo ""
@@ -349,9 +394,18 @@ else
     echo "⚠️  Claude Desktop config file not found."
     echo "   Expected location: $CONFIG_FILE"
     echo ""
-    echo "Would you like to create the configuration anyway? (y/n): "
-    read -n 1 CREATE_CONFIG
-    echo ""
+    while true; do
+        echo "Would you like to create the configuration anyway? (y/n): "
+        read -n 1 CREATE_CONFIG
+        echo ""
+        
+        if [[ "$CREATE_CONFIG" =~ ^[YyNn]$ ]]; then
+            break
+        else
+            echo "Invalid option. Please enter 'y' or 'n'."
+            echo ""
+        fi
+    done
     
     if [[ "$CREATE_CONFIG" =~ ^[Yy]$ ]]; then
         echo ""
