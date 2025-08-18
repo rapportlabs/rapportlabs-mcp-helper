@@ -61,72 +61,46 @@
 					<key>COMMAND_STRING</key>
 					<string>#!/bin/bash
 
-# GitHub MCP Server Installer - Automator Version
-# Disable exit on error for better debugging
-set +e
-
-# Function to show dialog and get response
-show_dialog() {
-    local message="$1"
-    local default_answer="$2"
-    
-    if [ -n "$default_answer" ]; then
-        # Text input dialog
-        result=$(osascript &lt;&lt; EOF
-try
-    set userInput to display dialog "$message" default answer "$default_answer" with title "GitHub MCP Installer"
-    return text returned of userInput
-on error
-    return ""
-end try
-EOF
-)
-        echo "$result"
-    else
-        # Yes/No dialog
-        result=$(osascript &lt;&lt; EOF
-try
-    set userChoice to display dialog "$message" buttons {"No", "Yes"} default button "Yes" with title "GitHub MCP Installer"
-    return button returned of userChoice
-on error
-    return "No"
-end try
-EOF
-)
-        echo "$result"
-    fi
-}
-
-show_notification() {
-    local message="$1"
-    osascript -e "display notification \"$message\" with title \"GitHub MCP Installer\""
-}
-
-show_alert() {
-    local message="$1"
-    local type="$2"  # "info" or "error"
-    
-    if [ "$type" = "error" ]; then
-        osascript -e "display alert \"Error\" message \"$message\" as critical"
-    else
-        osascript -e "display alert \"GitHub MCP Installer\" message \"$message\""
-    fi
-}
+# GitHub MCP Server Installer - Automator Version (Simplified)
+set -e
 
 # Configuration
 REPO="github/github-mcp-server"
 INSTALL_DIR="/usr/local/bin"
 
-# Show initial dialog
-show_alert "GitHub MCP Server Installer
+# Simple dialog functions
+ask_yes_no() {
+    local message="$1"
+    osascript -e "button returned of (display dialog \"$message\" buttons {\"No\", \"Yes\"} default button \"Yes\")"
+}
+
+ask_text() {
+    local message="$1"
+    local default="$2"
+    osascript -e "text returned of (display dialog \"$message\" default answer \"$default\")"
+}
+
+show_message() {
+    local message="$1"
+    osascript -e "display dialog \"$message\" with title \"GitHub MCP Installer\" buttons {\"OK\"} default button \"OK\""
+}
+
+show_error() {
+    local message="$1"
+    osascript -e "display dialog \"Error: $message\" with title \"GitHub MCP Installer\" buttons {\"OK\"} default button \"OK\" with icon stop"
+    exit 1
+}
+
+# Welcome message
+show_message "GitHub MCP Server Installer
 
 This will install the GitHub MCP Server for Claude Desktop.
 
 The installer will:
 - Download the latest version
-- Install to /usr/local/bin
+- Install to /usr/local/bin  
 - Configure Claude Desktop
-- Request admin password when needed" "info"
+- Request admin password when needed"
 
 # Detect architecture
 ARCH=$(uname -m)
@@ -135,24 +109,21 @@ if [ "$ARCH" = "x86_64" ]; then
     ARCH_NAME="Intel Mac"
 elif [ "$ARCH" = "arm64" ]; then
     ARCH_SUFFIX="arm64"
-    ARCH_NAME="Apple Silicon Mac (M1/M2/M3/M4)"
+    ARCH_NAME="Apple Silicon Mac"
 else
-    show_alert "Unsupported architecture: $ARCH" "error"
-    exit 1
+    show_error "Unsupported architecture: $ARCH"
 fi
 
 # Check if already installed
 if [ -x "$INSTALL_DIR/github-mcp-server" ]; then
-    response=$(show_dialog "GitHub MCP Server is already installed.
-
-Do you want to reinstall/update?")
+    response=$(ask_yes_no "GitHub MCP Server is already installed. Do you want to reinstall/update?")
     if [ "$response" != "Yes" ]; then
         exit 0
     fi
 fi
 
 # Confirm installation
-response=$(show_dialog "Detected: $ARCH_NAME
+response=$(ask_yes_no "Detected: $ARCH_NAME
 
 This will install GitHub MCP Server to $INSTALL_DIR
 
@@ -161,37 +132,31 @@ if [ "$response" != "Yes" ]; then
     exit 0
 fi
 
-# Get download URL
-show_notification "Fetching latest release information..."
-DOWNLOAD_URL=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | \
-    grep "browser_download_url.*Darwin_${ARCH_SUFFIX}.tar.gz" | \
-    sed 's/.*"browser_download_url": "\(.*\)".*/\1/')
+# Get latest version info
+DOWNLOAD_URL=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep "browser_download_url.*Darwin_${ARCH_SUFFIX}.tar.gz" | head -1 | sed 's/.*"browser_download_url": "\(.*\)".*/\1/')
 
-VERSION=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | \
-    grep '"tag_name":' | \
-    sed 's/.*"tag_name": "\(.*\)".*/\1/')
+VERSION=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed 's/.*"tag_name": "\(.*\)".*/\1/')
 
 if [ -z "$DOWNLOAD_URL" ]; then
-    show_alert "Failed to find download URL for your architecture" "error"
-    exit 1
+    show_error "Failed to find download URL for your architecture"
 fi
 
-show_notification "Found version: $VERSION"
+show_message "Found version: $VERSION
+
+Starting download..."
 
 # Create temp directory
 TEMP_DIR=$(mktemp -d)
-trap "rm -rf $TEMP_DIR" EXIT
+cleanup() {
+    rm -rf "$TEMP_DIR"
+}
+trap cleanup EXIT
 
 # Download
-show_notification "Downloading GitHub MCP Server..."
-if ! curl -L --progress-bar -o "$TEMP_DIR/github-mcp-server.tar.gz" "$DOWNLOAD_URL"; then
-    show_alert "Download failed" "error"
-    exit 1
-fi
+curl -L -o "$TEMP_DIR/github-mcp-server.tar.gz" "$DOWNLOAD_URL" || show_error "Download failed"
 
 # Extract
-show_notification "Extracting..."
-tar -xzf "$TEMP_DIR/github-mcp-server.tar.gz" -C "$TEMP_DIR"
+tar -xzf "$TEMP_DIR/github-mcp-server.tar.gz" -C "$TEMP_DIR" || show_error "Extraction failed"
 
 # Find the binary
 BINARY=""
@@ -203,156 +168,122 @@ for file in "$TEMP_DIR"/* "$TEMP_DIR"/*/*; do
 done
 
 if [ -z "$BINARY" ]; then
-    show_alert "Binary not found in downloaded archive" "error"
-    exit 1
+    show_error "Binary not found in downloaded archive"
 fi
 
-# Install with admin privileges using osascript
-show_notification "Installing to $INSTALL_DIR (admin password required)..."
-
-# Use osascript to run commands with admin privileges
-install_result=$(osascript -e "do shell script \"mkdir -p '$INSTALL_DIR' &amp;&amp; mv '$BINARY' '$INSTALL_DIR/github-mcp-server' &amp;&amp; chmod +x '$INSTALL_DIR/github-mcp-server'\" with administrator privileges" 2&gt;&amp;1)
+# Install with admin privileges
+osascript -e "do shell script \"mkdir -p '$INSTALL_DIR' &amp;&amp; cp '$BINARY' '$INSTALL_DIR/github-mcp-server' &amp;&amp; chmod +x '$INSTALL_DIR/github-mcp-server'\" with administrator privileges" || show_error "Installation failed"
 
 # Verify installation
-if [ -x "$INSTALL_DIR/github-mcp-server" ]; then
-    show_notification "Installation successful!"
-else
-    show_alert "Installation failed. Binary not found at $INSTALL_DIR/github-mcp-server" "error"
-    exit 1
+if [ ! -x "$INSTALL_DIR/github-mcp-server" ]; then
+    show_error "Installation verification failed"
 fi
 
-# Claude Desktop Configuration
-CONFIG_FILE="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+show_message "Installation successful!
+
+GitHub MCP Server $VERSION has been installed."
 
 # Ask about GitHub token
-response=$(show_dialog "Do you have a GitHub Personal Access Token (PAT)?
+response=$(ask_yes_no "Do you have a GitHub Personal Access Token?
 
 This is required for the GitHub MCP Server to work.
 You can create one at: https://github.com/settings/tokens")
 
-# Debug: Show what response we got (remove this line after testing)
-show_notification "Debug: Response was '$response'"
+CONFIG_FILE="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
 
 if [ "$response" = "Yes" ]; then
     # Get GitHub token
-    GITHUB_TOKEN=$(show_dialog "Enter your GitHub Personal Access Token:
-
-Create one at: https://github.com/settings/tokens
-Make sure to give it 'repo' scope." "")
+    GITHUB_TOKEN=$(ask_text "Enter your GitHub Personal Access Token:" "")
     
     if [ -n "$GITHUB_TOKEN" ]; then
-        show_notification "Updating Claude Desktop configuration..."
+        # Create config directory
+        mkdir -p "$(dirname "$CONFIG_FILE")"
         
-        # Update config using osascript (JavaScript for Automation)
-        config_result=$(osascript -l JavaScript &lt;&lt; EOF
-var app = Application.currentApplication();
-app.includeStandardAdditions = true;
+        # Backup existing config if it exists
+        if [ -f "$CONFIG_FILE" ]; then
+            cp "$CONFIG_FILE" "$CONFIG_FILE.backup.$(date +%Y%m%d_%H%M%S)"
+        fi
+        
+        # Try to read existing config and merge, or create new one
+        if [ -f "$CONFIG_FILE" ]; then
+            # Use Python to safely merge JSON (most Macs have Python)
+            python3 &lt;&lt; EOF
+import json
+import os
 
-// Read file or create empty config
-var config = {};
-try {
-    var configPath = "$CONFIG_FILE";
-    var configContent = app.read(Path(configPath));
-    config = JSON.parse(configContent);
-} catch(e) {
-    config = {};
-}
+config_file = "$CONFIG_FILE"
+token = "$GITHUB_TOKEN"
 
-// Ensure mcpServers exists
-if (!config.mcpServers) {
-    config.mcpServers = {};
-}
+try:
+    with open(config_file, 'r') as f:
+        config = json.load(f)
+except:
+    config = {}
 
-// Add or update github config
-config.mcpServers.github = {
+if 'mcpServers' not in config:
+    config['mcpServers'] = {}
+
+config['mcpServers']['github'] = {
     "command": "/usr/local/bin/github-mcp-server",
     "args": ["stdio"],
     "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "$GITHUB_TOKEN"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": token
     }
-};
-
-// Write back to file
-try {
-    var configPath = "$CONFIG_FILE";
-    var configDir = configPath.substring(0, configPath.lastIndexOf('/'));
-    
-    // Create directory if it doesn't exist
-    app.doShellScript("mkdir -p '" + configDir + "'");
-    
-    // Write the config file
-    var file = app.openForAccess(Path(configPath), { writePermission: true });
-    app.setEof(file, { to: 0 });
-    app.write(JSON.stringify(config, null, 2), { to: file });
-    app.closeAccess(file);
-    
-    "success";
-} catch(e) {
-    "error: " + e.toString();
 }
+
+with open(config_file, 'w') as f:
+    json.dump(config, f, indent=2)
 EOF
-)
-        
-        if [[ "$config_result" == "success" ]]; then
-            show_alert "Installation Complete! ✅
-
-GitHub MCP Server $VERSION has been installed and configured.
-
-⚠️ Important: Please restart Claude Desktop for the changes to take effect.
-
-The server is now available in Claude Desktop." "info"
         else
-            # Fallback to simple config creation
-            mkdir -p "$(dirname "$CONFIG_FILE")"
-            
-            if [ -f "$CONFIG_FILE" ]; then
-                cp "$CONFIG_FILE" "$CONFIG_FILE.backup"
-            fi
-            
-            cat &gt; "$CONFIG_FILE" &lt;&lt; EOF
+            # Create new config file
+            cat &gt; "$CONFIG_FILE" &lt;&lt; 'EOF'
 {
   "mcpServers": {
     "github": {
       "command": "/usr/local/bin/github-mcp-server",
       "args": ["stdio"],
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "$GITHUB_TOKEN"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "PLACEHOLDER_TOKEN"
       }
     }
   }
 }
 EOF
-            show_alert "Installation Complete! ✅
+            # Replace placeholder with actual token
+            sed -i '' "s/PLACEHOLDER_TOKEN/$GITHUB_TOKEN/g" "$CONFIG_FILE"
+        fi
+        
+        show_message "Installation Complete! ✅
 
 GitHub MCP Server $VERSION has been installed and configured.
 
-⚠️ Important: Please restart Claude Desktop for the changes to take effect.
+⚠️ IMPORTANT: Please restart Claude Desktop for the changes to take effect.
 
-Note: Configuration used simple mode. If you had other MCP servers, you may need to reconfigure them." "info"
-        fi
+The GitHub MCP Server is now ready to use!"
     else
-        show_alert "Installation Complete! ⚠️
+        show_message "Installation Complete! ⚠️
 
 GitHub MCP Server $VERSION has been installed but NOT configured.
 
 To complete setup:
-1. Get a GitHub Personal Access Token from: https://github.com/settings/tokens
-2. Configure Claude Desktop manually
-3. Restart Claude Desktop" "info"
+1. Get a GitHub Personal Access Token from:
+   https://github.com/settings/tokens
+2. Add it to your Claude Desktop configuration
+3. Restart Claude Desktop"
     fi
 else
-    show_alert "Installation Complete! ⚠️
+    show_message "Installation Complete! ⚠️
 
 GitHub MCP Server $VERSION has been installed but NOT configured.
 
 To complete setup:
-1. Get a GitHub Personal Access Token from: https://github.com/settings/tokens
+1. Create a GitHub Personal Access Token at:
+   https://github.com/settings/tokens
 2. Configure Claude Desktop manually
-3. Restart Claude Desktop" "info"
-fi
+3. Restart Claude Desktop
 
-# Final success notification
-show_notification "GitHub MCP Server installation completed!"</string>
+Instructions: https://github.com/github/github-mcp-server"
+fi</string>
 					<key>CheckedForUserDefaultShell</key>
 					<true/>
 					<key>inputMethod</key>
