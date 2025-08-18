@@ -56,10 +56,10 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			nX5gBO4sANATh+THK0GwCrybNt0=
+			+fEezmyVc4S/TuUaw8L0zAkb43I=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"20ac6a08520314242763340ca431772e13d88f6c" or cdhash H"9d7e6004ee2c00d01387e4c72b41b00abc9b36dd"</string>
+			<string>identifier document and anchor apple generic and certificate leaf[subject.CN] = "Apple Development: Chae Piljae (R8K5L97UX2)" and certificate 1[field.1.2.840.113635.100.6.2.1] /* exists */</string>
 		</dict>
 	</dict>
 	<key>rules</key>
