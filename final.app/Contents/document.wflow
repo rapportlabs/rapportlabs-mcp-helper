@@ -62,7 +62,8 @@
 					<string>#!/bin/bash
 
 # GitHub MCP Server Installer - Automator Version
-set -e
+# Disable exit on error for better debugging
+set +e
 
 # Function to show dialog and get response
 show_dialog() {
@@ -70,9 +71,29 @@ show_dialog() {
     local default_answer="$2"
     
     if [ -n "$default_answer" ]; then
-        osascript -e "display dialog \"$message\" default answer \"$default_answer\" with title \"GitHub MCP Installer\"" -e "text returned of result" 2&gt;/dev/null
+        # Text input dialog
+        result=$(osascript &lt;&lt; EOF
+try
+    set userInput to display dialog "$message" default answer "$default_answer" with title "GitHub MCP Installer"
+    return text returned of userInput
+on error
+    return ""
+end try
+EOF
+)
+        echo "$result"
     else
-        osascript -e "display dialog \"$message\" buttons {\"No\", \"Yes\"} default button \"Yes\" with title \"GitHub MCP Installer\"" -e "button returned of result" 2&gt;/dev/null
+        # Yes/No dialog
+        result=$(osascript &lt;&lt; EOF
+try
+    set userChoice to display dialog "$message" buttons {"No", "Yes"} default button "Yes" with title "GitHub MCP Installer"
+    return button returned of userChoice
+on error
+    return "No"
+end try
+EOF
+)
+        echo "$result"
     fi
 }
 
@@ -209,6 +230,9 @@ response=$(show_dialog "Do you have a GitHub Personal Access Token (PAT)?
 This is required for the GitHub MCP Server to work.
 You can create one at: https://github.com/settings/tokens")
 
+# Debug: Show what response we got (remove this line after testing)
+show_notification "Debug: Response was '$response'"
+
 if [ "$response" = "Yes" ]; then
     # Get GitHub token
     GITHUB_TOKEN=$(show_dialog "Enter your GitHub Personal Access Token:
@@ -334,7 +358,7 @@ show_notification "GitHub MCP Server installation completed!"</string>
 					<key>inputMethod</key>
 					<integer>1</integer>
 					<key>shell</key>
-					<string>/bin/sh</string>
+					<string>/bin/bash</string>
 					<key>source</key>
 					<string></string>
 				</dict>
