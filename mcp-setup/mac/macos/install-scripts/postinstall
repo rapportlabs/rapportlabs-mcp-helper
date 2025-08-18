@@ -1,0 +1,30 @@
+#!/bin/sh
+set -e
+
+# macOS GUI 로그인 사용자 (콘솔 사용자) 기준으로 사용자 홈을 타겟
+TARGET_USER=$(stat -f %Su /dev/console 2>/dev/null || echo "")
+if [ -z "$TARGET_USER" ] || [ "$TARGET_USER" = "root" ]; then
+  # 폴백: 환경 변수 USER 시도
+  TARGET_USER=${USER:-root}
+fi
+
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+
+SETUP_SCRIPT="$SCRIPT_DIR/claude-mcp-setup.sh"
+if [ ! -f "$SETUP_SCRIPT" ]; then
+  echo "[ERROR] claude-mcp-setup.sh를 찾을 수 없습니다: $SETUP_SCRIPT" >&2
+  exit 1
+fi
+
+echo "[INFO] postinstall: 대상 사용자 = $TARGET_USER"
+
+# 대상 사용자 환경으로 실행 (사용자 홈 기준 설치 필요: nvm 등)
+if command -v sudo >/dev/null 2>&1; then
+  sudo -u "$TARGET_USER" /bin/bash "$SETUP_SCRIPT"
+else
+  su - "$TARGET_USER" -c "/bin/bash \"$SETUP_SCRIPT\""
+fi
+
+echo "[INFO] postinstall 작업 완료"
+
+
