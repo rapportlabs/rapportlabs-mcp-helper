@@ -1,0 +1,462 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>AMApplicationBuild</key>
+	<string>528</string>
+	<key>AMApplicationVersion</key>
+	<string>2.10</string>
+	<key>AMDocumentVersion</key>
+	<string>2</string>
+	<key>actions</key>
+	<array>
+		<dict>
+			<key>action</key>
+			<dict>
+				<key>AMAccepts</key>
+				<dict>
+					<key>Container</key>
+					<string>List</string>
+					<key>Optional</key>
+					<true/>
+					<key>Types</key>
+					<array>
+						<string>com.apple.cocoa.string</string>
+					</array>
+				</dict>
+				<key>AMActionVersion</key>
+				<string>2.0.3</string>
+				<key>AMApplication</key>
+				<array>
+					<string>Automator</string>
+				</array>
+				<key>AMParameterProperties</key>
+				<dict>
+					<key>COMMAND_STRING</key>
+					<dict/>
+					<key>CheckedForUserDefaultShell</key>
+					<dict/>
+					<key>inputMethod</key>
+					<dict/>
+					<key>shell</key>
+					<dict/>
+					<key>source</key>
+					<dict/>
+				</dict>
+				<key>AMProvides</key>
+				<dict>
+					<key>Container</key>
+					<string>List</string>
+					<key>Types</key>
+					<array>
+						<string>com.apple.cocoa.string</string>
+					</array>
+				</dict>
+				<key>ActionBundlePath</key>
+				<string>/System/Library/Automator/Run Shell Script.action</string>
+				<key>ActionName</key>
+				<string>Run Shell Script</string>
+				<key>ActionParameters</key>
+				<dict>
+					<key>COMMAND_STRING</key>
+					<string>#!/bin/bash
+
+# GitHub MCP Server Installer - Automator Version
+set -e
+
+# Function to show dialog and get response
+show_dialog() {
+    local message="$1"
+    local default_answer="$2"
+    
+    if [ -n "$default_answer" ]; then
+        osascript -e "display dialog \"$message\" default answer \"$default_answer\" with title \"GitHub MCP Installer\"" -e "text returned of result" 2&gt;/dev/null
+    else
+        osascript -e "display dialog \"$message\" buttons {\"No\", \"Yes\"} default button \"Yes\" with title \"GitHub MCP Installer\"" -e "button returned of result" 2&gt;/dev/null
+    fi
+}
+
+show_notification() {
+    local message="$1"
+    osascript -e "display notification \"$message\" with title \"GitHub MCP Installer\""
+}
+
+show_alert() {
+    local message="$1"
+    local type="$2"  # "info" or "error"
+    
+    if [ "$type" = "error" ]; then
+        osascript -e "display alert \"Error\" message \"$message\" as critical"
+    else
+        osascript -e "display alert \"GitHub MCP Installer\" message \"$message\""
+    fi
+}
+
+# Configuration
+REPO="github/github-mcp-server"
+INSTALL_DIR="/usr/local/bin"
+
+# Show initial dialog
+show_alert "GitHub MCP Server Installer
+
+This will install the GitHub MCP Server for Claude Desktop.
+
+The installer will:
+- Download the latest version
+- Install to /usr/local/bin
+- Configure Claude Desktop
+- Request admin password when needed" "info"
+
+# Detect architecture
+ARCH=$(uname -m)
+if [ "$ARCH" = "x86_64" ]; then
+    ARCH_SUFFIX="x86_64"
+    ARCH_NAME="Intel Mac"
+elif [ "$ARCH" = "arm64" ]; then
+    ARCH_SUFFIX="arm64"
+    ARCH_NAME="Apple Silicon Mac (M1/M2/M3/M4)"
+else
+    show_alert "Unsupported architecture: $ARCH" "error"
+    exit 1
+fi
+
+# Check if already installed
+if [ -x "$INSTALL_DIR/github-mcp-server" ]; then
+    response=$(show_dialog "GitHub MCP Server is already installed.
+
+Do you want to reinstall/update?")
+    if [ "$response" != "Yes" ]; then
+        exit 0
+    fi
+fi
+
+# Confirm installation
+response=$(show_dialog "Detected: $ARCH_NAME
+
+This will install GitHub MCP Server to $INSTALL_DIR
+
+Continue with installation?")
+if [ "$response" != "Yes" ]; then
+    exit 0
+fi
+
+# Get download URL
+show_notification "Fetching latest release information..."
+DOWNLOAD_URL=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | \
+    grep "browser_download_url.*Darwin_${ARCH_SUFFIX}.tar.gz" | \
+    sed 's/.*"browser_download_url": "\(.*\)".*/\1/')
+
+VERSION=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | \
+    grep '"tag_name":' | \
+    sed 's/.*"tag_name": "\(.*\)".*/\1/')
+
+if [ -z "$DOWNLOAD_URL" ]; then
+    show_alert "Failed to find download URL for your architecture" "error"
+    exit 1
+fi
+
+show_notification "Found version: $VERSION"
+
+# Create temp directory
+TEMP_DIR=$(mktemp -d)
+trap "rm -rf $TEMP_DIR" EXIT
+
+# Download
+show_notification "Downloading GitHub MCP Server..."
+if ! curl -L --progress-bar -o "$TEMP_DIR/github-mcp-server.tar.gz" "$DOWNLOAD_URL"; then
+    show_alert "Download failed" "error"
+    exit 1
+fi
+
+# Extract
+show_notification "Extracting..."
+tar -xzf "$TEMP_DIR/github-mcp-server.tar.gz" -C "$TEMP_DIR"
+
+# Find the binary
+BINARY=""
+for file in "$TEMP_DIR"/* "$TEMP_DIR"/*/*; do
+    if [ -f "$file" ] &amp;&amp; [ "$(basename "$file")" = "github-mcp-server" ]; then
+        BINARY="$file"
+        break
+    fi
+done
+
+if [ -z "$BINARY" ]; then
+    show_alert "Binary not found in downloaded archive" "error"
+    exit 1
+fi
+
+# Install with admin privileges using osascript
+show_notification "Installing to $INSTALL_DIR (admin password required)..."
+
+# Use osascript to run commands with admin privileges
+install_result=$(osascript -e "do shell script \"mkdir -p '$INSTALL_DIR' &amp;&amp; mv '$BINARY' '$INSTALL_DIR/github-mcp-server' &amp;&amp; chmod +x '$INSTALL_DIR/github-mcp-server'\" with administrator privileges" 2&gt;&amp;1)
+
+# Verify installation
+if [ -x "$INSTALL_DIR/github-mcp-server" ]; then
+    show_notification "Installation successful!"
+else
+    show_alert "Installation failed. Binary not found at $INSTALL_DIR/github-mcp-server" "error"
+    exit 1
+fi
+
+# Claude Desktop Configuration
+CONFIG_FILE="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+
+# Ask about GitHub token
+response=$(show_dialog "Do you have a GitHub Personal Access Token (PAT)?
+
+This is required for the GitHub MCP Server to work.
+You can create one at: https://github.com/settings/tokens")
+
+if [ "$response" = "Yes" ]; then
+    # Get GitHub token
+    GITHUB_TOKEN=$(show_dialog "Enter your GitHub Personal Access Token:
+
+Create one at: https://github.com/settings/tokens
+Make sure to give it 'repo' scope." "")
+    
+    if [ -n "$GITHUB_TOKEN" ]; then
+        show_notification "Updating Claude Desktop configuration..."
+        
+        # Update config using osascript (JavaScript for Automation)
+        config_result=$(osascript -l JavaScript &lt;&lt; EOF
+var app = Application.currentApplication();
+app.includeStandardAdditions = true;
+
+// Read file or create empty config
+var config = {};
+try {
+    var configPath = "$CONFIG_FILE";
+    var configContent = app.read(Path(configPath));
+    config = JSON.parse(configContent);
+} catch(e) {
+    config = {};
+}
+
+// Ensure mcpServers exists
+if (!config.mcpServers) {
+    config.mcpServers = {};
+}
+
+// Add or update github config
+config.mcpServers.github = {
+    "command": "/usr/local/bin/github-mcp-server",
+    "args": ["stdio"],
+    "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "$GITHUB_TOKEN"
+    }
+};
+
+// Write back to file
+try {
+    var configPath = "$CONFIG_FILE";
+    var configDir = configPath.substring(0, configPath.lastIndexOf('/'));
+    
+    // Create directory if it doesn't exist
+    app.doShellScript("mkdir -p '" + configDir + "'");
+    
+    // Write the config file
+    var file = app.openForAccess(Path(configPath), { writePermission: true });
+    app.setEof(file, { to: 0 });
+    app.write(JSON.stringify(config, null, 2), { to: file });
+    app.closeAccess(file);
+    
+    "success";
+} catch(e) {
+    "error: " + e.toString();
+}
+EOF
+)
+        
+        if [[ "$config_result" == "success" ]]; then
+            show_alert "Installation Complete! ✅
+
+GitHub MCP Server $VERSION has been installed and configured.
+
+⚠️ Important: Please restart Claude Desktop for the changes to take effect.
+
+The server is now available in Claude Desktop." "info"
+        else
+            # Fallback to simple config creation
+            mkdir -p "$(dirname "$CONFIG_FILE")"
+            
+            if [ -f "$CONFIG_FILE" ]; then
+                cp "$CONFIG_FILE" "$CONFIG_FILE.backup"
+            fi
+            
+            cat &gt; "$CONFIG_FILE" &lt;&lt; EOF
+{
+  "mcpServers": {
+    "github": {
+      "command": "/usr/local/bin/github-mcp-server",
+      "args": ["stdio"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "$GITHUB_TOKEN"
+      }
+    }
+  }
+}
+EOF
+            show_alert "Installation Complete! ✅
+
+GitHub MCP Server $VERSION has been installed and configured.
+
+⚠️ Important: Please restart Claude Desktop for the changes to take effect.
+
+Note: Configuration used simple mode. If you had other MCP servers, you may need to reconfigure them." "info"
+        fi
+    else
+        show_alert "Installation Complete! ⚠️
+
+GitHub MCP Server $VERSION has been installed but NOT configured.
+
+To complete setup:
+1. Get a GitHub Personal Access Token from: https://github.com/settings/tokens
+2. Configure Claude Desktop manually
+3. Restart Claude Desktop" "info"
+    fi
+else
+    show_alert "Installation Complete! ⚠️
+
+GitHub MCP Server $VERSION has been installed but NOT configured.
+
+To complete setup:
+1. Get a GitHub Personal Access Token from: https://github.com/settings/tokens
+2. Configure Claude Desktop manually
+3. Restart Claude Desktop" "info"
+fi
+
+# Final success notification
+show_notification "GitHub MCP Server installation completed!"</string>
+					<key>CheckedForUserDefaultShell</key>
+					<true/>
+					<key>inputMethod</key>
+					<integer>1</integer>
+					<key>shell</key>
+					<string>/bin/sh</string>
+					<key>source</key>
+					<string></string>
+				</dict>
+				<key>BundleIdentifier</key>
+				<string>com.apple.RunShellScript</string>
+				<key>CFBundleVersion</key>
+				<string>2.0.3</string>
+				<key>CanShowSelectedItemsWhenRun</key>
+				<false/>
+				<key>CanShowWhenRun</key>
+				<true/>
+				<key>Category</key>
+				<array>
+					<string>AMCategoryUtilities</string>
+				</array>
+				<key>Class Name</key>
+				<string>RunShellScriptAction</string>
+				<key>InputUUID</key>
+				<string>26B3014B-1145-4383-ADEF-08AD8409DC29</string>
+				<key>Keywords</key>
+				<array>
+					<string>Shell</string>
+					<string>Script</string>
+					<string>Command</string>
+					<string>Run</string>
+					<string>Unix</string>
+				</array>
+				<key>OutputUUID</key>
+				<string>0B0C0618-DDD4-4316-9125-02CE4BA92CE2</string>
+				<key>UUID</key>
+				<string>D5629FF5-B458-401A-AA58-CCE2DC8A9DBC</string>
+				<key>UnlocalizedApplications</key>
+				<array>
+					<string>Automator</string>
+				</array>
+				<key>arguments</key>
+				<dict>
+					<key>0</key>
+					<dict>
+						<key>default value</key>
+						<integer>0</integer>
+						<key>name</key>
+						<string>inputMethod</string>
+						<key>required</key>
+						<string>0</string>
+						<key>type</key>
+						<string>0</string>
+						<key>uuid</key>
+						<string>0</string>
+					</dict>
+					<key>1</key>
+					<dict>
+						<key>default value</key>
+						<false/>
+						<key>name</key>
+						<string>CheckedForUserDefaultShell</string>
+						<key>required</key>
+						<string>0</string>
+						<key>type</key>
+						<string>0</string>
+						<key>uuid</key>
+						<string>1</string>
+					</dict>
+					<key>2</key>
+					<dict>
+						<key>default value</key>
+						<string></string>
+						<key>name</key>
+						<string>source</string>
+						<key>required</key>
+						<string>0</string>
+						<key>type</key>
+						<string>0</string>
+						<key>uuid</key>
+						<string>2</string>
+					</dict>
+					<key>3</key>
+					<dict>
+						<key>default value</key>
+						<string></string>
+						<key>name</key>
+						<string>COMMAND_STRING</string>
+						<key>required</key>
+						<string>0</string>
+						<key>type</key>
+						<string>0</string>
+						<key>uuid</key>
+						<string>3</string>
+					</dict>
+					<key>4</key>
+					<dict>
+						<key>default value</key>
+						<string>/bin/sh</string>
+						<key>name</key>
+						<string>shell</string>
+						<key>required</key>
+						<string>0</string>
+						<key>type</key>
+						<string>0</string>
+						<key>uuid</key>
+						<string>4</string>
+					</dict>
+				</dict>
+				<key>conversionLabel</key>
+				<integer>0</integer>
+				<key>isViewVisible</key>
+				<integer>1</integer>
+				<key>location</key>
+				<string>309.000000:252.000000</string>
+				<key>nibPath</key>
+				<string>/System/Library/Automator/Run Shell Script.action/Contents/Resources/Base.lproj/main.nib</string>
+			</dict>
+			<key>isViewVisible</key>
+			<integer>1</integer>
+		</dict>
+	</array>
+	<key>connectors</key>
+	<dict/>
+	<key>workflowMetaData</key>
+	<dict>
+		<key>workflowTypeIdentifier</key>
+		<string>com.apple.Automator.application</string>
+	</dict>
+</dict>
+</plist>
