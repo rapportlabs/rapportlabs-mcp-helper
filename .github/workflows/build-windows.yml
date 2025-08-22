@@ -1,14 +1,15 @@
 name: Build Windows Executable
 
 on:
-  push:
-    branches: [ master, main ]
-  pull_request:
-    branches: [ master, main ]
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
 
 jobs:
-  build-windows:
+  build-and-release:
     runs-on: ubuntu-latest
     
     steps:
@@ -30,60 +31,23 @@ jobs:
         GOOS=windows GOARCH=amd64 go build -ldflags="-H windowsgui" -o dist/claude-config-windows-amd64.exe ./cmd/claude-config/main.go
         GOOS=windows GOARCH=386 go build -ldflags="-H windowsgui" -o dist/claude-config-windows-386.exe ./cmd/claude-config/main.go
     
-    - name: Upload Windows artifacts
-      uses: actions/upload-artifact@v4
+    - name: Create GitHub Release
+      uses: ncipollo/release-action@v1
       with:
-        name: windows-executables
-        path: |
+        tag: ${{ github.event.inputs.version }}
+        name: Release ${{ github.event.inputs.version }}
+        artifacts: |
           dist/app-windows-amd64.exe
           dist/app-windows-386.exe
           dist/claude-config-windows-amd64.exe
           dist/claude-config-windows-386.exe
-        retention-days: 30
-
-  build-multi-platform:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - goos: windows
-            goarch: amd64
-            ext: .exe
-          - goos: windows
-            goarch: 386
-            ext: .exe
-          - goos: linux
-            goarch: amd64
-            ext: ""
-          - goos: darwin
-            goarch: amd64
-            ext: ""
-          - goos: darwin
-            goarch: arm64
-            ext: ""
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.21'
-    
-    - name: Build executable
-      run: |
-        mkdir -p dist
-        # Build sample app
-        GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags="-s -w" -o dist/app-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} ./cmd/main.go
-        # Build Claude config tool (Windows only with GUI flag)
-        if [ "${{ matrix.goos }}" = "windows" ]; then
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags="-s -w -H windowsgui" -o dist/claude-config-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} ./cmd/claude-config/main.go
-        fi
-    
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: app-${{ matrix.goos }}-${{ matrix.goarch }}
-        path: dist/*-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
-        retention-days: 30
+        body: |
+          ## Downloads
+          - **claude-config-windows-amd64.exe** - Claude Desktop MCP Configuration Tool (64-bit)
+          - **claude-config-windows-386.exe** - Claude Desktop MCP Configuration Tool (32-bit)
+          - **app-windows-amd64.exe** - Sample Application (64-bit)
+          - **app-windows-386.exe** - Sample Application (32-bit)
+          
+          ### Usage
+          Download and run `claude-config-windows-amd64.exe` to configure Claude Desktop MCP servers.
+        token: ${{ secrets.GITHUB_TOKEN }}
