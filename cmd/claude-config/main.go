@@ -136,6 +136,13 @@ func (mw *AppMainWindow) loadCurrentState() {
 }
 
 func main() {
+	// Ensure we show errors in message boxes on Windows
+	defer func() {
+		if r := recover(); r != nil {
+			walk.MsgBox(nil, "Error", fmt.Sprintf("Application error: %v", r), walk.MsgBoxIconError)
+		}
+	}()
+
 	var mw AppMainWindow
 
 	if err := (MainWindow{
@@ -190,7 +197,8 @@ func main() {
 			},
 		},
 	}.Create()); err != nil {
-		panic(err)
+		walk.MsgBox(nil, "Error", fmt.Sprintf("Failed to create window: %v", err), walk.MsgBoxIconError)
+		return
 	}
 
 	// Load current state when the window opens

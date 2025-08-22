@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"runtime"
@@ -20,4 +21,9 @@ func main() {
 	}
 	
 	fmt.Println("\nApplication running successfully!")
+	fmt.Println("\nPress Enter to exit...")
+	
+	// Wait for user input before exiting
+	reader := bufio.NewReader(os.Stdin)
+	reader.ReadLine()
 }
