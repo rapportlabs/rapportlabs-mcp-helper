@@ -1,15 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
-
-	"github.com/lxn/walk"
-	. "github.com/lxn/walk/declarative"
+	"strings"
 )
 
 type McpServer struct {
@@ -21,11 +20,9 @@ type ClaudeConfig struct {
 	McpServers map[string]McpServer `json:"mcpServers"`
 }
 
-type AppMainWindow struct {
-	*walk.MainWindow
-	rplsCheckBox    *walk.CheckBox
-	queenitCheckBox *walk.CheckBox
-	statusLabel     *walk.Label
+type ConfigState struct {
+	rplsEnabled    bool
+	queenitEnabled bool
 }
 
 func getClaudeConfigPath() string {
@@ -82,15 +79,14 @@ func saveConfig(config *ClaudeConfig) error {
 	return ioutil.WriteFile(configPath, data, 0644)
 }
 
-func (mw *AppMainWindow) updateConfig() {
+func updateConfig(state *ConfigState) error {
 	config, err := loadExistingConfig()
 	if err != nil {
-		mw.statusLabel.SetText(fmt.Sprintf("Error loading config: %v", err))
-		return
+		return fmt.Errorf("loading config: %v", err)
 	}
 
-	// Handle RPLS checkbox
-	if mw.rplsCheckBox.Checked() {
+	// Handle RPLS
+	if state.rplsEnabled {
 		config.McpServers["rpls"] = McpServer{
 			Command: "npx",
 			Args:    []string{"mcp-remote", "https://agentgateway.damoa.rapportlabs.dance/mcp"},
@@ -99,8 +95,8 @@ func (mw *AppMainWindow) updateConfig() {
 		delete(config.McpServers, "rpls")
 	}
 
-	// Handle Queenit checkbox
-	if mw.queenitCheckBox.Checked() {
+	// Handle Queenit
+	if state.queenitEnabled {
 		config.McpServers["queenit"] = McpServer{
 			Command: "npx",
 			Args:    []string{"mcp-remote", "https://mcp.rapportlabs.kr/mcp"},
@@ -110,83 +106,88 @@ func (mw *AppMainWindow) updateConfig() {
 	}
 
 	if err := saveConfig(config); err != nil {
-		mw.statusLabel.SetText(fmt.Sprintf("Error saving config: %v", err))
-		return
+		return fmt.Errorf("saving config: %v", err)
 	}
 
-	mw.statusLabel.SetText("Configuration updated successfully! Please restart Claude Desktop.")
+	return nil
 }
 
-func (mw *AppMainWindow) loadCurrentState() {
+func loadCurrentState() (*ConfigState, error) {
 	config, err := loadExistingConfig()
 	if err != nil {
-		mw.statusLabel.SetText(fmt.Sprintf("Error loading current config: %v", err))
-		return
+		return nil, fmt.Errorf("loading config: %v", err)
 	}
 
-	// Set checkbox states based on current config
-	_, rplsExists := config.McpServers["rpls"]
-	mw.rplsCheckBox.SetChecked(rplsExists)
+	state := &ConfigState{}
+	_, state.rplsEnabled = config.McpServers["rpls"]
+	_, state.queenitEnabled = config.McpServers["queenit"]
 
-	_, queenitExists := config.McpServers["queenit"]
-	mw.queenitCheckBox.SetChecked(queenitExists)
-
-	configPath := getClaudeConfigPath()
-	mw.statusLabel.SetText(fmt.Sprintf("Config file: %s", configPath))
+	return state, nil
 }
 
 func main() {
-	// Ensure we show errors in message boxes on Windows
-	defer func() {
-		if r := recover(); r != nil {
-			walk.MsgBox(nil, "Error", fmt.Sprintf("Application error: %v", r), walk.MsgBoxIconError)
-		}
-	}()
+	fmt.Println("Claude Desktop MCP Server Configuration")
+	fmt.Println("======================================")
+	
+	configPath := getClaudeConfigPath()
+	fmt.Printf("Configuration file: %s\n\n", configPath)
 
-	var mw AppMainWindow
-
-	if err := (MainWindow{
-		AssignTo: &mw.MainWindow,
-		Title:    "Claude Desktop MCP Configuration",
-		MinSize:  Size{450, 300},
-		Size:     Size{500, 380},
-		Layout:   VBox{},
-		Children: []Widget{
-			Composite{
-				Layout: VBox{Margins: Margins{15, 15, 15, 15}, Spacing: 10},
-				Children: []Widget{
-					Label{
-						Text: "Configure Claude Desktop MCP Servers:",
-						Font: Font{PointSize: 12, Bold: true},
-					},
-					CheckBox{
-						AssignTo: &mw.rplsCheckBox,
-						Text:     "RPLS (Rapport Labs Agent Gateway)",
-					},
-					CheckBox{
-						AssignTo: &mw.queenitCheckBox,
-						Text:     "Queenit (Rapport Labs MCP)",
-					},
-					PushButton{
-						Text: "Apply Configuration",
-						OnClicked: func() {
-							mw.updateConfig()
-						},
-					},
-					Label{
-						AssignTo: &mw.statusLabel,
-						Text:     "Ready to configure...",
-					},
-				},
-			},
-		},
-	}.Create()); err != nil {
-		walk.MsgBox(nil, "Error", fmt.Sprintf("Failed to create window: %v", err), walk.MsgBoxIconError)
-		return
+	// Load current state
+	state, err := loadCurrentState()
+	if err != nil {
+		fmt.Printf("Warning: Could not load current config: %v\n", err)
+		state = &ConfigState{}
 	}
 
-	// Load current state when the window opens
-	mw.loadCurrentState()
+	reader := bufio.NewReader(os.Stdin)
 
-	mw.Run()
+	for {
+		// Display current status
+		fmt.Println("Current MCP Server Configuration:")
+		fmt.Printf("1. RPLS (Rapport Labs Agent Gateway): %s\n", getStatus(state.rplsEnabled))
+		fmt.Printf("2. Queenit (Rapport Labs MCP): %s\n\n", getStatus(state.queenitEnabled))
+
+		fmt.Println("Options:")
+		fmt.Println("1 - Toggle RPLS")
+		fmt.Println("2 - Toggle Queenit")
+		fmt.Println("s - Save configuration")
+		fmt.Println("q - Quit")
+		fmt.Print("\nSelect option: ")
+
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(strings.ToLower(input))
+
+		switch input {
+		case "1":
+			state.rplsEnabled = !state.rplsEnabled
+			fmt.Printf("RPLS is now %s\n\n", getStatus(state.rplsEnabled))
+
+		case "2":
+			state.queenitEnabled = !state.queenitEnabled
+			fmt.Printf("Queenit is now %s\n\n", getStatus(state.queenitEnabled))
+
+		case "s":
+			fmt.Print("Saving configuration... ")
+			if err := updateConfig(state); err != nil {
+				fmt.Printf("Error: %v\n\n", err)
+			} else {
+				fmt.Println("Success!")
+				fmt.Println("Please restart Claude Desktop for changes to take effect.\n")
+			}
+
+		case "q":
+			fmt.Println("Goodbye!")
+			return
+
+		default:
+			fmt.Println("Invalid option. Please try again.\n")
+		}
+	}
+}
+
+func getStatus(enabled bool) string {
+	if enabled {
+		return "ENABLED"
+	}
+	return "DISABLED"
 }

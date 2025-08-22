@@ -31,8 +31,8 @@ jobs:
         mkdir -p dist
         # Build sample app (64-bit only)
         GOOS=windows GOARCH=amd64 go build -o dist/app-windows-amd64.exe ./cmd/main.go
-        # Build Claude Desktop config tool (64-bit only)
-        GOOS=windows GOARCH=amd64 go build -ldflags="-H windowsgui" -o dist/claude-config-windows-amd64.exe ./cmd/claude-config/main.go
+        # Build Claude Desktop config tool (64-bit only) - console app
+        GOOS=windows GOARCH=amd64 go build -o dist/claude-config-windows-amd64.exe ./cmd/claude-config/main.go
     
     - name: Create GitHub Release
       uses: ncipollo/release-action@v1
@@ -44,11 +44,13 @@ jobs:
           dist/claude-config-windows-amd64.exe
         body: |
           ## Downloads
-          - **claude-config-windows-amd64.exe** - Claude Desktop MCP Configuration Tool (64-bit Windows)
+          - **claude-config-windows-amd64.exe** - Claude Desktop MCP Configuration Tool (Console-based, 64-bit Windows)
           - **app-windows-amd64.exe** - Sample Application (64-bit Windows)
           
           ### Usage
-          Download and run `claude-config-windows-amd64.exe` to configure Claude Desktop MCP servers.
+          Download and run `claude-config-windows-amd64.exe` in Command Prompt or PowerShell to configure Claude Desktop MCP servers.
+          
+          The configuration tool provides an interactive console interface to enable/disable RPLS and Queenit MCP servers.
           
           **System Requirements:** 64-bit Windows (Windows 7 or later)
         token: ${{ secrets.GITHUB_TOKEN }}
