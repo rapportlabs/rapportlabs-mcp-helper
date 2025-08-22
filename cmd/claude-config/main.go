@@ -147,51 +147,35 @@ func main() {
 
 	if err := (MainWindow{
 		AssignTo: &mw.MainWindow,
-		Title:    "Claude Desktop MCP Server Configuration",
-		MinSize:  Size{400, 300},
-		Size:     Size{500, 350},
+		Title:    "Claude Desktop MCP Configuration",
+		MinSize:  Size{450, 300},
+		Size:     Size{500, 380},
 		Layout:   VBox{},
 		Children: []Widget{
 			Composite{
-				Layout: VBox{Margins: Margins{20, 20, 20, 20}},
+				Layout: VBox{Margins: Margins{15, 15, 15, 15}, Spacing: 10},
 				Children: []Widget{
 					Label{
-						Text: "Select MCP Servers to configure in Claude Desktop:",
-						Font: Font{PointSize: 11, Bold: true},
+						Text: "Configure Claude Desktop MCP Servers:",
+						Font: Font{PointSize: 12, Bold: true},
 					},
-					VSeparator{},
 					CheckBox{
 						AssignTo: &mw.rplsCheckBox,
 						Text:     "RPLS (Rapport Labs Agent Gateway)",
-						Font:     Font{PointSize: 10},
 					},
-					Label{
-						Text: "  → https://agentgateway.damoa.rapportlabs.dance/mcp",
-						Font: Font{PointSize: 8},
-					},
-					VSpacer{Size: 10},
 					CheckBox{
 						AssignTo: &mw.queenitCheckBox,
 						Text:     "Queenit (Rapport Labs MCP)",
-						Font:     Font{PointSize: 10},
 					},
-					Label{
-						Text: "  → https://mcp.rapportlabs.kr/mcp",
-						Font: Font{PointSize: 8},
-					},
-					VSpacer{Size: 20},
 					PushButton{
 						Text: "Apply Configuration",
-						Font: Font{PointSize: 11, Bold: true},
 						OnClicked: func() {
 							mw.updateConfig()
 						},
 					},
-					VSpacer{Size: 10},
 					Label{
 						AssignTo: &mw.statusLabel,
 						Text:     "Ready to configure...",
-						Font:     Font{PointSize: 9},
 					},
 				},
 			},
