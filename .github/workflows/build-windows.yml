@@ -1,0 +1,77 @@
+name: Build Windows Executable
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+    
+    - name: Build Windows executable
+      run: |
+        GOOS=windows GOARCH=amd64 go build -o dist/app-windows-amd64.exe ./cmd/main.go
+        GOOS=windows GOARCH=386 go build -o dist/app-windows-386.exe ./cmd/main.go
+    
+    - name: Upload Windows artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-executables
+        path: |
+          dist/app-windows-amd64.exe
+          dist/app-windows-386.exe
+        retention-days: 30
+
+  build-multi-platform:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+            ext: .exe
+          - goos: windows
+            goarch: 386
+            ext: .exe
+          - goos: linux
+            goarch: amd64
+            ext: ""
+          - goos: darwin
+            goarch: amd64
+            ext: ""
+          - goos: darwin
+            goarch: arm64
+            ext: ""
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+    
+    - name: Build executable
+      run: |
+        mkdir -p dist
+        GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags="-s -w" -o dist/app-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} ./cmd/main.go
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: dist/app-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
+        retention-days: 30
