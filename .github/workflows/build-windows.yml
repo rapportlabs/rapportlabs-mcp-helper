@@ -29,12 +29,10 @@ jobs:
     - name: Build Windows executables
       run: |
         mkdir -p dist
-        # Build sample app
+        # Build sample app (64-bit only)
         GOOS=windows GOARCH=amd64 go build -o dist/app-windows-amd64.exe ./cmd/main.go
-        GOOS=windows GOARCH=386 go build -o dist/app-windows-386.exe ./cmd/main.go
-        # Build Claude Desktop config tool
+        # Build Claude Desktop config tool (64-bit only)
         GOOS=windows GOARCH=amd64 go build -ldflags="-H windowsgui" -o dist/claude-config-windows-amd64.exe ./cmd/claude-config/main.go
-        GOOS=windows GOARCH=386 go build -ldflags="-H windowsgui" -o dist/claude-config-windows-386.exe ./cmd/claude-config/main.go
     
     - name: Create GitHub Release
       uses: ncipollo/release-action@v1
@@ -43,16 +41,14 @@ jobs:
         name: Release ${{ github.event.inputs.version }}
         artifacts: |
           dist/app-windows-amd64.exe
-          dist/app-windows-386.exe
           dist/claude-config-windows-amd64.exe
-          dist/claude-config-windows-386.exe
         body: |
           ## Downloads
-          - **claude-config-windows-amd64.exe** - Claude Desktop MCP Configuration Tool (64-bit)
-          - **claude-config-windows-386.exe** - Claude Desktop MCP Configuration Tool (32-bit)
-          - **app-windows-amd64.exe** - Sample Application (64-bit)
-          - **app-windows-386.exe** - Sample Application (32-bit)
+          - **claude-config-windows-amd64.exe** - Claude Desktop MCP Configuration Tool (64-bit Windows)
+          - **app-windows-amd64.exe** - Sample Application (64-bit Windows)
           
           ### Usage
           Download and run `claude-config-windows-amd64.exe` to configure Claude Desktop MCP servers.
+          
+          **System Requirements:** 64-bit Windows (Windows 7 or later)
         token: ${{ secrets.GITHUB_TOKEN }}
