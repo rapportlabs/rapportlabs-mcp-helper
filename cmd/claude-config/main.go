@@ -51,9 +51,15 @@ func loadExistingConfig() (*ClaudeConfig, error) {
 		return nil, err
 	}
 
+	// Check if file is empty or contains only whitespace
+	if len(strings.TrimSpace(string(data))) == 0 {
+		return &ClaudeConfig{McpServers: make(map[string]McpServer)}, nil
+	}
+
 	var config ClaudeConfig
 	if err := json.Unmarshal(data, &config); err != nil {
-		return nil, err
+		// Show more detailed error information
+		return nil, fmt.Errorf("JSON parse error in %s: %v\nFile content preview: %q", configPath, err, string(data[:min(len(data), 100)]))
 	}
 
 	if config.McpServers == nil {
@@ -61,6 +67,13 @@ func loadExistingConfig() (*ClaudeConfig, error) {
 	}
 
 	return &config, nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func saveConfig(config *ClaudeConfig) error {
@@ -135,8 +148,23 @@ func main() {
 	// Load current state
 	state, err := loadCurrentState()
 	if err != nil {
-		fmt.Printf("Warning: Could not load current config: %v\n", err)
-		state = &ConfigState{}
+		fmt.Printf("Error loading current config: %v\n\n", err)
+		fmt.Println("Would you like to:")
+		fmt.Println("1. Create a new empty configuration")
+		fmt.Println("2. Exit and fix the JSON file manually")
+		fmt.Print("\nSelect option (1 or 2): ")
+		
+		reader := bufio.NewReader(os.Stdin)
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		
+		if input == "1" {
+			state = &ConfigState{}
+			fmt.Println("Created new empty configuration.\n")
+		} else {
+			fmt.Println("Please fix the JSON file and try again.")
+			return
+		}
 	}
 
 	reader := bufio.NewReader(os.Stdin)
