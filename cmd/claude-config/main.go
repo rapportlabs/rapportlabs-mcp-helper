@@ -21,7 +21,7 @@ type ClaudeConfig struct {
 	McpServers map[string]McpServer `json:"mcpServers"`
 }
 
-type MainWindow struct {
+type AppMainWindow struct {
 	*walk.MainWindow
 	rplsCheckBox    *walk.CheckBox
 	queenitCheckBox *walk.CheckBox
@@ -82,7 +82,7 @@ func saveConfig(config *ClaudeConfig) error {
 	return ioutil.WriteFile(configPath, data, 0644)
 }
 
-func (mw *MainWindow) updateConfig() {
+func (mw *AppMainWindow) updateConfig() {
 	config, err := loadExistingConfig()
 	if err != nil {
 		mw.statusLabel.SetText(fmt.Sprintf("Error loading config: %v", err))
@@ -117,7 +117,7 @@ func (mw *MainWindow) updateConfig() {
 	mw.statusLabel.SetText("Configuration updated successfully! Please restart Claude Desktop.")
 }
 
-func (mw *MainWindow) loadCurrentState() {
+func (mw *AppMainWindow) loadCurrentState() {
 	config, err := loadExistingConfig()
 	if err != nil {
 		mw.statusLabel.SetText(fmt.Sprintf("Error loading current config: %v", err))
@@ -136,7 +136,7 @@ func (mw *MainWindow) loadCurrentState() {
 }
 
 func main() {
-	var mw MainWindow
+	var mw AppMainWindow
 
 	if err := (MainWindow{
 		AssignTo: &mw.MainWindow,
