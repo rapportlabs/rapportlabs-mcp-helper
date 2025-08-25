@@ -4,6 +4,7 @@ title Node.js 24.4.1 and mcp-remote Setup
 
 echo ========================================
 echo Node.js 24.4.1 and mcp-remote Setup Script
+echo (mcp-remote from geelen/mcp-remote)
 echo ========================================
 echo.
 
@@ -94,9 +95,12 @@ if errorlevel 1 (
 echo.
 echo [SUCCESS] Node.js installed successfully!
 echo.
-node --version
-npm --version
-npx --version
+echo Node version:
+call node --version
+echo NPM version:
+call npm --version
+echo NPX version:
+call npx --version
 
 echo.
 echo ----------------------------------------
@@ -104,19 +108,19 @@ echo Press any key to install mcp-remote...
 echo ----------------------------------------
 pause >nul
 
-REM Install mcp-remote
+REM Install mcp-remote from geelen/mcp-remote
 echo.
-echo Installing @rapportlabs/mcp-remote@0.1.18...
+echo Installing mcp-remote from https://github.com/geelen/mcp-remote...
 echo This may take a few minutes...
 echo.
 
-npm install -g @rapportlabs/mcp-remote@0.1.18
+npm install -g mcp-remote
 
 if errorlevel 1 (
     echo.
     echo [WARNING] Retrying with --force flag...
     echo.
-    npm install -g @rapportlabs/mcp-remote@0.1.18 --force
+    npm install -g mcp-remote --force
 )
 
 echo.
@@ -126,14 +130,16 @@ echo ========================================
 echo.
 echo Installed Software:
 echo -------------------
-node --version
-npm --version
-npx --version
-echo mcp-remote: v0.1.18 (global)
+echo Node version:
+call node --version
+echo NPM version:
+call npm --version
+echo NPX version:
+call npx --version
+echo.
+echo mcp-remote (global) from geelen/mcp-remote
 echo.
 echo You can use mcp-remote with:
-echo   npx @rapportlabs/mcp-remote [command]
-echo   or
 echo   mcp-remote [command]
 echo.
 echo ========================================
