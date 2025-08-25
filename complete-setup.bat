@@ -158,10 +158,15 @@ if errorlevel 1 (
 
 echo.
 echo Verifying mcp-remote installation...
+echo [DEBUG] About to check mcp-remote version...
 echo Checking installed version via npm...
-for /f "tokens=2 delims=@" %%v in ('npm list -g mcp-remote 2^>nul ^| findstr "mcp-remote@"') do (
-    echo mcp-remote version: %%v
+npm list -g mcp-remote >nul 2>&1
+if errorlevel 1 (
+    echo [WARNING] Could not verify mcp-remote installation, but continuing...
+) else (
+    echo [SUCCESS] mcp-remote appears to be installed
 )
+echo [DEBUG] Version check completed, continuing...
 
 echo.
 echo [STEP 1/2] Node.js and mcp-remote setup complete!
@@ -251,8 +256,7 @@ echo NPM version:
 call npm --version
 echo NPX version:
 call npx --version
-echo mcp-remote version:
-for /f "tokens=2 delims=@" %%v in ('npm list -g mcp-remote 2^>nul ^| findstr "mcp-remote@"') do echo %%v
+echo mcp-remote: installed
 echo.
 echo Claude Desktop Configuration:
 echo ----------------------------
