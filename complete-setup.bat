@@ -139,14 +139,14 @@ echo Installing mcp-remote from https://github.com/geelen/mcp-remote...
 echo This may take a few minutes...
 echo.
 
-npm install -g mcp-remote
+call npm install -g mcp-remote
 echo [DEBUG] npm install command completed
 
 if errorlevel 1 (
     echo.
     echo [WARNING] First npm install failed, retrying with --force flag...
     echo.
-    npm install -g mcp-remote --force
+    call npm install -g mcp-remote --force
     echo [DEBUG] npm install --force command completed
     
     if errorlevel 1 (
@@ -166,7 +166,7 @@ echo.
 echo Verifying mcp-remote installation...
 echo [DEBUG] About to check mcp-remote version...
 echo Checking installed version via npm...
-npm list -g mcp-remote >nul 2>&1
+call npm list -g mcp-remote >nul 2>&1
 if errorlevel 1 (
     echo [WARNING] Could not verify mcp-remote installation, but continuing...
 ) else (
