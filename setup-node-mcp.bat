@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 chcp 65001 >nul
 title Node.js 24.4.1 and mcp-remote Setup
 
@@ -29,14 +30,24 @@ echo.
 
 REM Check Node.js
 echo Checking for existing Node.js installation...
+set SKIP_NODE_INSTALL=0
 where node >nul 2>&1
 if errorlevel 1 (
     echo Node.js is NOT installed.
     echo Will install Node.js v24.4.1
 ) else (
     echo Found existing Node.js:
-    node --version
-    echo This will be updated to v24.4.1
+    for /f "tokens=*" %%v in ('node --version 2^>nul') do set CURRENT_NODE_VERSION=%%v
+    echo Current version: !CURRENT_NODE_VERSION!
+    
+    REM Check if it's version 24.4.1
+    echo !CURRENT_NODE_VERSION! | findstr /C:"v24.4.1" >nul
+    if not errorlevel 1 (
+        echo [SUCCESS] Node.js v24.4.1 is already installed!
+        set SKIP_NODE_INSTALL=1
+    ) else (
+        echo This will be updated to v24.4.1
+    )
 )
 
 echo.
@@ -45,32 +56,39 @@ echo Press any key to proceed with setup...
 echo ----------------------------------------
 pause >nul
 
-REM Check winget
-echo.
-echo Checking for Windows Package Manager...
-where winget >nul 2>&1
-if errorlevel 1 (
+REM Check winget only if Node.js needs to be installed
+if !SKIP_NODE_INSTALL!==1 (
+    echo Winget check skipped - Node.js already at target version.
+) else (
     echo.
-    echo [ERROR] winget not found!
-    echo.
-    echo Please install Node.js 24.4.1 manually from:
-    echo https://nodejs.org/
-    echo.
-    goto :end
+    echo Checking for Windows Package Manager...
+    where winget >nul 2>&1
+    if errorlevel 1 (
+        echo.
+        echo [ERROR] winget not found!
+        echo.
+        echo Please install Node.js 24.4.1 manually from:
+        echo https://nodejs.org/
+        echo.
+        goto :end
+    )
+    echo [WINGET CHECK] Windows Package Manager found - OK
 )
-
-echo [WINGET CHECK] Windows Package Manager found - OK
 echo.
 
-REM Install Node.js
-echo Installing/Updating Node.js to v24.4.1...
-echo This may take several minutes...
-echo.
-
-winget install OpenJS.NodeJS --version 24.4.1 --silent --accept-package-agreements --accept-source-agreements --force
-
-echo.
-echo Node.js installation step completed.
+REM Install Node.js if needed
+if !SKIP_NODE_INSTALL!==1 (
+    echo Skipping Node.js installation - already at target version.
+) else (
+    echo Installing/Updating Node.js to v24.4.1...
+    echo This may take several minutes...
+    echo.
+    
+    winget install OpenJS.NodeJS --version 24.4.1 --silent --accept-package-agreements --accept-source-agreements --force
+    
+    echo.
+    echo Node.js installation step completed.
+)
 echo.
 
 REM Refresh PATH
