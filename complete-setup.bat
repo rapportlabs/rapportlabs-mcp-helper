@@ -140,12 +140,14 @@ echo This may take a few minutes...
 echo.
 
 npm install -g mcp-remote
+echo [DEBUG] npm install command completed
 
 if errorlevel 1 (
     echo.
     echo [WARNING] First npm install failed, retrying with --force flag...
     echo.
     npm install -g mcp-remote --force
+    echo [DEBUG] npm install --force command completed
     
     if errorlevel 1 (
         echo.
@@ -154,7 +156,11 @@ if errorlevel 1 (
         echo Continuing anyway to attempt Claude Desktop configuration...
         echo.
     )
+) else (
+    echo [DEBUG] npm install succeeded on first attempt
 )
+
+echo [DEBUG] Continuing after npm install section...
 
 echo.
 echo Verifying mcp-remote installation...
