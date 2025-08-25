@@ -124,6 +124,13 @@ if errorlevel 1 (
 )
 
 echo.
+echo Verifying mcp-remote installation...
+echo Checking installed version via npm...
+for /f "tokens=2 delims=@" %%v in ('npm list -g mcp-remote 2^>nul ^| findstr "mcp-remote@"') do (
+    echo mcp-remote version: %%v
+)
+
+echo.
 echo ========================================
 echo SETUP COMPLETE!
 echo ========================================
@@ -136,8 +143,8 @@ echo NPM version:
 call npm --version
 echo NPX version:
 call npx --version
-echo.
-echo mcp-remote (global) from geelen/mcp-remote
+echo mcp-remote version:
+for /f "tokens=2 delims=@" %%v in ('npm list -g mcp-remote 2^>nul ^| findstr "mcp-remote@"') do echo %%v
 echo.
 echo You can use mcp-remote with:
 echo   mcp-remote [command]
