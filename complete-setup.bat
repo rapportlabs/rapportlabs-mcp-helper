@@ -143,9 +143,17 @@ npm install -g mcp-remote
 
 if errorlevel 1 (
     echo.
-    echo [WARNING] Retrying with --force flag...
+    echo [WARNING] First npm install failed, retrying with --force flag...
     echo.
     npm install -g mcp-remote --force
+    
+    if errorlevel 1 (
+        echo.
+        echo [ERROR] Both npm install attempts failed!
+        echo [DEBUG] This might cause the script to exit before STEP 2/2
+        echo Continuing anyway to attempt Claude Desktop configuration...
+        echo.
+    )
 )
 
 echo.
@@ -164,6 +172,7 @@ REM ========================================
 REM PART 2: Claude Desktop Configuration
 REM ========================================
 
+echo [DEBUG] Starting STEP 2/2 - Claude Desktop Configuration
 echo ========================================
 echo [STEP 2/2] Setting up Claude Desktop MCP configuration...
 echo ========================================
