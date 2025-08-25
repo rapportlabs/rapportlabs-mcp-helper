@@ -206,6 +206,71 @@ MCP_VERSION=$(npm list -g mcp-remote 2>/dev/null | grep mcp-remote@ | sed 's/.*m
 echo "mcp-remote version: $MCP_VERSION"
 
 echo
+echo "----------------------------------------"
+echo "Press Enter to configure Claude Desktop..."
+echo "----------------------------------------"
+read -r
+
+# Configure Claude Desktop MCP
+echo
+echo "Setting up Claude Desktop MCP configuration..."
+echo
+
+# Define the Claude Desktop config path for macOS
+CONFIG_DIR="$HOME/Library/Application Support/Claude"
+CONFIG_FILE="$CONFIG_DIR/claude_desktop_config.json"
+
+# Create the directory if it doesn't exist
+if [ ! -d "$CONFIG_DIR" ]; then
+    echo "Creating configuration directory: $CONFIG_DIR"
+    mkdir -p "$CONFIG_DIR"
+    if [ $? -ne 0 ]; then
+        print_error "Error: Failed to create directory $CONFIG_DIR"
+        exit 1
+    fi
+fi
+
+# Write the MCP configuration
+echo "Writing MCP configuration to $CONFIG_FILE..."
+cat > "$CONFIG_FILE" << 'EOF'
+{
+  "mcpServers": {
+    "rpls": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://agentgateway.damoa.rapportlabs.dance/mcp"
+      ]
+    },
+    "queenit": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://mcp.rapportlabs.kr/mcp"
+      ]
+    }
+  }
+}
+EOF
+
+if [ $? -eq 0 ]; then
+    echo
+    print_success "Success! MCP configuration has been written to:"
+    echo "$CONFIG_FILE"
+    echo
+    echo "The following MCP servers have been configured:"
+    echo "- rpls: https://agentgateway.damoa.rapportlabs.dance/mcp"
+    echo "- queenit: https://mcp.rapportlabs.kr/mcp"
+    echo
+    print_info "Please restart Claude Desktop for the changes to take effect."
+else
+    echo
+    print_error "Error: Failed to write configuration file."
+    echo "Please check permissions for $CONFIG_DIR"
+    exit 1
+fi
+
+echo
 echo "========================================"
 print_success "SETUP COMPLETE!"
 echo "========================================"
@@ -221,8 +286,15 @@ npx --version
 echo "mcp-remote version:"
 echo "$MCP_VERSION"
 echo
+echo "MCP Configuration:"
+echo "------------------"
+echo "Config file: $CONFIG_FILE"
+echo "Configured servers: rpls, queenit"
+echo
 echo "You can use mcp-remote with:"
 echo "  mcp-remote [command]"
+echo
+print_info "Remember to restart Claude Desktop to use the MCP servers!"
 echo
 echo "========================================"
 echo
