@@ -182,6 +182,11 @@ if not exist "%CONFIG_DIR%" (
 
 REM Write the MCP configuration
 echo Writing MCP configuration to %CONFIG_FILE%...
+echo [JSON CONFIG] Creating JSON structure...
+echo [JSON CONFIG] Adding mcpServers object...
+echo [JSON CONFIG] Configuring 'rpls' server with endpoint: https://agentgateway.damoa.rapportlabs.dance/mcp
+echo [JSON CONFIG] Configuring 'queenit' server with endpoint: https://mcp.rapportlabs.kr/mcp
+echo [JSON CONFIG] Writing configuration file...
 (
 echo {
 echo   "mcpServers": {
@@ -202,6 +207,7 @@ echo     }
 echo   }
 echo }
 ) > "%CONFIG_FILE%"
+echo [JSON CONFIG] Configuration file write operation completed.
 
 if !errorlevel! equ 0 (
     echo [SUCCESS] MCP configuration written successfully!
