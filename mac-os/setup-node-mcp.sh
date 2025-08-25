@@ -184,11 +184,19 @@ echo "Installing mcp-remote from https://github.com/geelen/mcp-remote..."
 echo "This may take a few minutes..."
 echo
 
-if ! npm install -g mcp-remote; then
+# Check if we need sudo for npm global install (same logic as Node.js installation)
+if [ -w "/usr/local/lib/node_modules" ] 2>/dev/null; then
+    NPM_SUDO=""
+else
+    echo "Administrator privileges required for global npm installation..."
+    NPM_SUDO="sudo"
+fi
+
+if ! $NPM_SUDO npm install -g mcp-remote; then
     echo
     print_warning "[WARNING] Retrying with --force flag..."
     echo
-    npm install -g mcp-remote --force
+    $NPM_SUDO npm install -g mcp-remote --force
 fi
 
 echo
