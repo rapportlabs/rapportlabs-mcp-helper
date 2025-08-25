@@ -11,7 +11,9 @@ net session >nul 2>&1
 if %errorLevel% neq 0 (
     echo This script requires administrator privileges.
     echo Please run as administrator.
-    pause
+    echo.
+    echo Press any key to exit...
+    pause >nul
     exit /b 1
 )
 
@@ -27,6 +29,10 @@ if %errorLevel% equ 0 (
     echo Installing Node.js 24.4.1...
     echo.
 )
+echo.
+echo Press any key to continue with installation...
+pause >nul
+echo.
 
 REM Install or update Node.js 24.4.1 using winget (Windows Package Manager)
 echo Setting up Node.js 24.4.1...
@@ -40,9 +46,15 @@ if %errorLevel% equ 0 (
     if %errorLevel% neq 0 (
         echo Failed to install/update Node.js via winget.
         echo Please install Node.js 24.4.1 manually from https://nodejs.org/
-        pause
+        echo.
+        echo Press any key to exit...
+        pause >nul
         exit /b 1
     )
+    echo.
+    echo Node.js installation/update completed!
+    echo Press any key to continue...
+    pause >nul
 ) else (
     echo Windows Package Manager (winget) not found.
     echo.
@@ -52,7 +64,8 @@ if %errorLevel% equ 0 (
     echo 3. Run the installer
     echo 4. Re-run this script after installation
     echo.
-    pause
+    echo Press any key to exit...
+    pause >nul
     exit /b 1
 )
 
@@ -64,13 +77,18 @@ where node >nul 2>&1
 if %errorLevel% neq 0 (
     echo Node.js installation verification failed.
     echo Please restart Command Prompt and try again.
-    pause
+    echo.
+    echo Press any key to exit...
+    pause >nul
     exit /b 1
 )
 
 echo.
 echo Node.js installed successfully!
 node --version
+echo.
+echo Press any key to continue with npm and mcp-remote setup...
+pause >nul
 echo.
 
 REM Check npm version
@@ -85,6 +103,8 @@ echo.
 
 REM Install mcp-remote globally
 echo Installing mcp-remote v0.1.18...
+echo This may take a few minutes...
+echo.
 call npm install -g @rapportlabs/mcp-remote@0.1.18
 
 if %errorLevel% neq 0 (
@@ -95,7 +115,9 @@ if %errorLevel% neq 0 (
         echo.
         echo Failed to install mcp-remote. Please try manually:
         echo npm install -g @rapportlabs/mcp-remote@0.1.18
-        pause
+        echo.
+        echo Press any key to exit...
+        pause >nul
         exit /b 1
     )
 )
@@ -124,4 +146,6 @@ echo   or
 echo   mcp-remote [command]
 echo.
 echo ========================================
-pause
+echo.
+echo Press any key to exit...
+pause >nul
