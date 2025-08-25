@@ -104,10 +104,12 @@ set "PATH=%PATH%;%PROGRAMFILES%\nodejs\;%APPDATA%\npm"
 
 REM Verify Node.js
 echo Verifying Node.js installation...
+echo [DEBUG] Checking if node command is available in PATH...
 where node >nul 2>&1
 if errorlevel 1 (
     echo.
     echo [ERROR] Node.js installation verification failed!
+    echo [DEBUG] This is where the script stops - node command not found in PATH
     echo.
     echo Please:
     echo   1. Close this window
@@ -116,6 +118,7 @@ if errorlevel 1 (
     echo.
     goto :end
 )
+echo [DEBUG] Node.js verification passed - continuing to STEP 2/2...
 
 echo.
 echo [SUCCESS] Node.js installed successfully!
@@ -154,6 +157,7 @@ for /f "tokens=2 delims=@" %%v in ('npm list -g mcp-remote 2^>nul ^| findstr "mc
 
 echo.
 echo [STEP 1/2] Node.js and mcp-remote setup complete!
+echo [DEBUG] About to proceed to STEP 2/2...
 echo.
 
 REM ========================================
