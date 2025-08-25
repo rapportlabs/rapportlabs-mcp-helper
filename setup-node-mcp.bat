@@ -14,7 +14,7 @@ if "%1"=="" (
 
 REM Check if running as administrator
 net session >nul 2>&1
-if %errorLevel% neq 0 (
+if not %errorLevel%==0 (
     echo [ERROR] This script requires administrator privileges.
     echo.
     echo Please right-click the script and select "Run as administrator"
@@ -28,7 +28,7 @@ echo.
 REM Check current Node.js installation
 echo Checking for existing Node.js installation...
 where node >nul 2>&1
-if %errorLevel% equ 0 (
+if %errorLevel%==0 (
     echo.
     echo Found existing Node.js:
     for /f "tokens=*" %%i in ('node --version 2^>nul') do echo Current version: %%i
@@ -50,7 +50,7 @@ REM Check for winget availability
 echo.
 echo Checking for Windows Package Manager (winget)...
 where winget >nul 2>&1
-if %errorLevel% neq 0 (
+if not %errorLevel%==0 (
     echo.
     echo [ERROR] Windows Package Manager (winget) not found!
     echo.
@@ -71,12 +71,12 @@ echo Installing/Updating Node.js to v24.4.1...
 echo This may take several minutes...
 echo.
 
-REM Try to uninstall existing Node.js first if present
+REM Try to update or install Node.js
 where node >nul 2>&1
-if %errorLevel% equ 0 (
+if %errorLevel%==0 (
     echo Attempting to update existing Node.js installation...
     winget upgrade OpenJS.NodeJS --version 24.4.1 --silent --accept-package-agreements --accept-source-agreements
-    if %errorLevel% neq 0 (
+    if not %errorLevel%==0 (
         echo Update failed, attempting fresh installation...
         winget install OpenJS.NodeJS --version 24.4.1 --silent --accept-package-agreements --accept-source-agreements --force
     )
@@ -96,7 +96,7 @@ set "PATH=%PATH%;%PROGRAMFILES%\nodejs\;%APPDATA%\npm"
 REM Verify Node.js installation
 echo Verifying Node.js installation...
 where node >nul 2>&1
-if %errorLevel% neq 0 (
+if not %errorLevel%==0 (
     echo.
     echo [ERROR] Node.js installation verification failed!
     echo.
@@ -129,14 +129,14 @@ echo.
 
 npm install -g @rapportlabs/mcp-remote@0.1.18
 
-if %errorLevel% neq 0 (
+if not %errorLevel%==0 (
     echo.
     echo [WARNING] First installation attempt failed.
     echo Retrying with --force flag...
     echo.
     npm install -g @rapportlabs/mcp-remote@0.1.18 --force
     
-    if %errorLevel% neq 0 (
+    if not %errorLevel%==0 (
         echo.
         echo [ERROR] Failed to install mcp-remote!
         echo.
