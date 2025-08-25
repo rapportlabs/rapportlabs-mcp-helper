@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 echo ========================================
-echo Node.js 24.x and mcp-remote Setup Script
+echo Node.js 24.4.1 and mcp-remote Setup Script
 echo ========================================
 echo.
 
@@ -21,34 +21,34 @@ if %errorLevel% equ 0 (
     echo Current Node.js version:
     node --version
     echo.
-    set /p CONTINUE="Node.js is already installed. Continue with setup? (Y/N): "
-    if /i "!CONTINUE!" neq "Y" (
-        echo Setup cancelled.
-        pause
-        exit /b 0
-    )
+    echo Updating to Node.js 24.4.1...
 ) else (
     echo Node.js is not installed.
+    echo Installing Node.js 24.4.1...
     echo.
 )
 
-REM Install or update Node.js 24.x using winget (Windows Package Manager)
-echo Installing/Updating Node.js 24.x...
+REM Install or update Node.js 24.4.1 using winget (Windows Package Manager)
+echo Setting up Node.js 24.4.1...
 where winget >nul 2>&1
 if %errorLevel% equ 0 (
-    winget install OpenJS.NodeJS --version 24.0.0 --silent --accept-package-agreements --accept-source-agreements
+    REM First try to upgrade if already installed, otherwise install
+    winget upgrade OpenJS.NodeJS --version 24.4.1 --silent --accept-package-agreements --accept-source-agreements >nul 2>&1
     if %errorLevel% neq 0 (
-        echo Failed to install Node.js via winget.
-        echo Please install Node.js 24.x manually from https://nodejs.org/
+        winget install OpenJS.NodeJS --version 24.4.1 --silent --accept-package-agreements --accept-source-agreements
+    )
+    if %errorLevel% neq 0 (
+        echo Failed to install/update Node.js via winget.
+        echo Please install Node.js 24.4.1 manually from https://nodejs.org/
         pause
         exit /b 1
     )
 ) else (
     echo Windows Package Manager (winget) not found.
     echo.
-    echo Please install Node.js 24.x manually:
+    echo Please install Node.js 24.4.1 manually:
     echo 1. Visit https://nodejs.org/
-    echo 2. Download Node.js 24.x LTS version
+    echo 2. Download Node.js 24.4.1 version
     echo 3. Run the installer
     echo 4. Re-run this script after installation
     echo.
