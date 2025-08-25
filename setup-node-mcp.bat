@@ -1,144 +1,163 @@
 @echo off
-setlocal enabledelayedexpansion
+title Node.js 24.4.1 and mcp-remote Setup
 
 echo ========================================
 echo Node.js 24.4.1 and mcp-remote Setup Script
 echo ========================================
 echo.
 
+REM Keep window open on any exit
+if "%1"=="" (
+    cmd /k "%~f0" RUN
+    exit
+)
+
 REM Check if running as administrator
 net session >nul 2>&1
 if %errorLevel% neq 0 (
-    echo This script requires administrator privileges.
-    echo Please run as administrator.
+    echo [ERROR] This script requires administrator privileges.
     echo.
-    echo Press any key to exit...
-    pause >nul
-    exit /b 1
+    echo Please right-click the script and select "Run as administrator"
+    echo.
+    goto :end
 )
 
-REM Check if Node.js is installed
+echo [ADMIN CHECK] Running with administrator privileges - OK
+echo.
+
+REM Check current Node.js installation
+echo Checking for existing Node.js installation...
 where node >nul 2>&1
 if %errorLevel% equ 0 (
-    echo Current Node.js version:
-    node --version
     echo.
-    echo Updating to Node.js 24.4.1...
+    echo Found existing Node.js:
+    for /f "tokens=*" %%i in ('node --version 2^>nul') do echo Current version: %%i
+    echo.
+    echo This will be updated to v24.4.1
 ) else (
-    echo Node.js is not installed.
-    echo Installing Node.js 24.4.1...
     echo.
+    echo Node.js is not currently installed.
+    echo Will install Node.js v24.4.1
 )
-echo.
-echo Press any key to continue with installation...
-pause >nul
-echo.
 
-REM Install or update Node.js 24.4.1 using winget (Windows Package Manager)
-echo Setting up Node.js 24.4.1...
+echo.
+echo ----------------------------------------
+echo Press any key to proceed with setup...
+echo ----------------------------------------
+pause >nul
+
+REM Check for winget availability
+echo.
+echo Checking for Windows Package Manager (winget)...
 where winget >nul 2>&1
-if %errorLevel% equ 0 (
-    REM First try to upgrade if already installed, otherwise install
-    winget upgrade OpenJS.NodeJS --version 24.4.1 --silent --accept-package-agreements --accept-source-agreements >nul 2>&1
-    if %errorLevel% neq 0 (
-        winget install OpenJS.NodeJS --version 24.4.1 --silent --accept-package-agreements --accept-source-agreements
-    )
-    if %errorLevel% neq 0 (
-        echo Failed to install/update Node.js via winget.
-        echo Please install Node.js 24.4.1 manually from https://nodejs.org/
-        echo.
-        echo Press any key to exit...
-        pause >nul
-        exit /b 1
-    )
+if %errorLevel% neq 0 (
     echo.
-    echo Node.js installation/update completed!
-    echo Press any key to continue...
-    pause >nul
-) else (
-    echo Windows Package Manager (winget) not found.
+    echo [ERROR] Windows Package Manager (winget) not found!
     echo.
     echo Please install Node.js 24.4.1 manually:
-    echo 1. Visit https://nodejs.org/
-    echo 2. Download Node.js 24.4.1 version
-    echo 3. Run the installer
-    echo 4. Re-run this script after installation
+    echo   1. Visit: https://nodejs.org/
+    echo   2. Download Node.js v24.4.1
+    echo   3. Run the installer
+    echo   4. Re-run this script after installation
     echo.
-    echo Press any key to exit...
-    pause >nul
-    exit /b 1
+    goto :end
 )
 
-REM Refresh environment variables
-call refreshenv >nul 2>&1
+echo [WINGET CHECK] Windows Package Manager found - OK
+echo.
+
+REM Install or update Node.js
+echo Installing/Updating Node.js to v24.4.1...
+echo This may take several minutes...
+echo.
+
+REM Try to uninstall existing Node.js first if present
+where node >nul 2>&1
+if %errorLevel% equ 0 (
+    echo Attempting to update existing Node.js installation...
+    winget upgrade OpenJS.NodeJS --version 24.4.1 --silent --accept-package-agreements --accept-source-agreements
+    if %errorLevel% neq 0 (
+        echo Update failed, attempting fresh installation...
+        winget install OpenJS.NodeJS --version 24.4.1 --silent --accept-package-agreements --accept-source-agreements --force
+    )
+) else (
+    echo Installing Node.js fresh...
+    winget install OpenJS.NodeJS --version 24.4.1 --silent --accept-package-agreements --accept-source-agreements
+)
+
+echo.
+echo Node.js installation step completed.
+echo.
+
+REM Refresh PATH
+echo Refreshing environment variables...
+set "PATH=%PATH%;%PROGRAMFILES%\nodejs\;%APPDATA%\npm"
 
 REM Verify Node.js installation
+echo Verifying Node.js installation...
 where node >nul 2>&1
 if %errorLevel% neq 0 (
-    echo Node.js installation verification failed.
-    echo Please restart Command Prompt and try again.
     echo.
-    echo Press any key to exit...
-    pause >nul
-    exit /b 1
+    echo [ERROR] Node.js installation verification failed!
+    echo.
+    echo Possible solutions:
+    echo   1. Close this window and open a new Command Prompt as administrator
+    echo   2. Restart your computer
+    echo   3. Install Node.js manually from https://nodejs.org/
+    echo.
+    goto :end
 )
 
 echo.
-echo Node.js installed successfully!
-node --version
+echo [SUCCESS] Node.js installed successfully!
 echo.
-echo Press any key to continue with npm and mcp-remote setup...
+for /f "tokens=*" %%i in ('node --version 2^>nul') do echo Node version: %%i
+for /f "tokens=*" %%i in ('npm --version 2^>nul') do echo NPM version: %%i
+for /f "tokens=*" %%i in ('npx --version 2^>nul') do echo NPX version: %%i
+
+echo.
+echo ----------------------------------------
+echo Press any key to install mcp-remote...
+echo ----------------------------------------
 pause >nul
-echo.
 
-REM Check npm version
-echo NPM version:
-call npm --version
+REM Install mcp-remote
 echo.
-
-REM npx comes bundled with npm (since npm 5.2.0)
-echo NPX version:
-call npx --version
-echo.
-
-REM Install mcp-remote globally
-echo Installing mcp-remote v0.1.18...
+echo Installing @rapportlabs/mcp-remote@0.1.18...
 echo This may take a few minutes...
 echo.
-call npm install -g @rapportlabs/mcp-remote@0.1.18
+
+npm install -g @rapportlabs/mcp-remote@0.1.18
 
 if %errorLevel% neq 0 (
-    echo Failed to install mcp-remote.
-    echo Trying with administrator privileges...
-    call npm install -g @rapportlabs/mcp-remote@0.1.18 --force
-    if !errorLevel! neq 0 (
+    echo.
+    echo [WARNING] First installation attempt failed.
+    echo Retrying with --force flag...
+    echo.
+    npm install -g @rapportlabs/mcp-remote@0.1.18 --force
+    
+    if %errorLevel% neq 0 (
         echo.
-        echo Failed to install mcp-remote. Please try manually:
-        echo npm install -g @rapportlabs/mcp-remote@0.1.18
+        echo [ERROR] Failed to install mcp-remote!
         echo.
-        echo Press any key to exit...
-        pause >nul
-        exit /b 1
+        echo Please try manually running:
+        echo   npm install -g @rapportlabs/mcp-remote@0.1.18
+        echo.
+        goto :end
     )
 )
 
 echo.
 echo ========================================
-echo Setup Complete!
+echo SETUP COMPLETE!
 echo ========================================
 echo.
-echo Installed versions:
+echo Installed Software:
 echo -------------------
-call node --version
-call npm --version
-call npx --version
-echo.
-echo mcp-remote version:
-call npx @rapportlabs/mcp-remote --version 2>nul
-if %errorLevel% neq 0 (
-    echo mcp-remote v0.1.18 (installed globally)
-) 
-
+for /f "tokens=*" %%i in ('node --version 2^>nul') do echo Node.js: %%i
+for /f "tokens=*" %%i in ('npm --version 2^>nul') do echo NPM: %%i
+for /f "tokens=*" %%i in ('npx --version 2^>nul') do echo NPX: %%i
+echo mcp-remote: v0.1.18 (global)
 echo.
 echo You can now use mcp-remote with:
 echo   npx @rapportlabs/mcp-remote [command]
@@ -146,6 +165,9 @@ echo   or
 echo   mcp-remote [command]
 echo.
 echo ========================================
+
+:end
 echo.
-echo Press any key to exit...
+echo Press any key to close this window...
 pause >nul
+exit /b
