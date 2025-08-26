@@ -100,7 +100,30 @@ echo "========================================"
 echo "Ready to proceed with installation"
 echo "========================================"
 echo
+print_warning "⚠️  IMPORTANT NOTICE FOR DEVELOPERS ⚠️"
+echo "This script is designed for users WITHOUT existing Node.js development environments."
+echo "If you are a developer with existing Node.js/nvm setups, this script may:"
+echo "  • Change your default Node.js version to 24.4.1"
+echo "  • Modify your nvm configuration"
+echo "  • Install global npm packages that may conflict with your projects"
+echo
+echo "For experienced developers, consider manual installation instead."
+echo
 
+while true; do
+    read -p "Do you want to continue with the installation? (y/n): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        break
+    elif [[ $REPLY =~ ^[Nn]$ ]]; then
+        print_info "Installation cancelled by user."
+        exit 0
+    else
+        print_error "Invalid input. Please enter 'y' or 'n'."
+    fi
+done
+
+echo
 # Install nvm if needed
 if [ $SKIP_NVM_INSTALL -eq 0 ]; then
     echo "Installing nvm $NVM_VERSION..."
