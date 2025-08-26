@@ -18,7 +18,7 @@ print_info() { echo -e "${BLUE}$1${NC}"; }
 # Script header
 echo "========================================"
 echo "Node.js 24.4.1 and mcp-remote 0.1.18 Setup Script"
-echo "(No dependencies - Using nvm for Node.js management)"
+echo "(No git/Xcode dependencies - Using nvm for Node.js management)"
 echo "========================================"
 echo
 
@@ -127,16 +127,43 @@ echo
 # Install nvm if needed
 if [ $SKIP_NVM_INSTALL -eq 0 ]; then
     echo "Installing nvm $NVM_VERSION..."
-    echo "Downloading and running nvm install script..."
+    echo "Downloading nvm as tarball (no git required)..."
     
-    # Download and install specific nvm version
-    if ! curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/$NVM_VERSION/install.sh" | bash; then
-        print_error "[ERROR] Failed to install nvm!"
+    # Create nvm directory
+    mkdir -p "$HOME/.nvm"
+    
+    # Download nvm tarball instead of using git
+    TARBALL_URL="https://github.com/nvm-sh/nvm/archive/$NVM_VERSION.tar.gz"
+    TEMP_DIR=$(mktemp -d)
+    
+    echo "Downloading from $TARBALL_URL..."
+    if ! curl -L "$TARBALL_URL" | tar -xz -C "$TEMP_DIR"; then
+        print_error "[ERROR] Failed to download nvm tarball!"
         echo "Please check your internet connection."
+        rm -rf "$TEMP_DIR"
         exit 1
     fi
     
-    print_success "[SUCCESS] nvm $NVM_VERSION installed successfully!"
+    # Move nvm files to the correct location
+    mv "$TEMP_DIR/nvm-${NVM_VERSION#v}"/* "$HOME/.nvm/"
+    rm -rf "$TEMP_DIR"
+    
+    # Make nvm.sh executable
+    chmod +x "$HOME/.nvm/nvm.sh"
+    
+    # Add nvm to profile files if they exist
+    for profile in ~/.bash_profile ~/.zshrc ~/.profile ~/.bashrc; do
+        if [[ -f "$profile" ]]; then
+            if ! grep -q 'NVM_DIR.*nvm' "$profile"; then
+                echo 'export NVM_DIR="$HOME/.nvm"' >> "$profile"
+                echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm' >> "$profile"
+                echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion' >> "$profile"
+                echo "Added nvm configuration to $profile"
+            fi
+        fi
+    done
+    
+    print_success "[SUCCESS] nvm $NVM_VERSION installed successfully (without git)!"
     echo
 fi
 
