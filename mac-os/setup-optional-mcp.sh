@@ -25,20 +25,32 @@ fi
 # Check if already installed
 if [ -x "$INSTALL_DIR/github-mcp-server" ]; then
     echo "GitHub MCP Server is already installed at $INSTALL_DIR/github-mcp-server"
-    read -p "Do you want to reinstall/update? (y/n): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 0
-    fi
+    while true; do
+        read -p "Do you want to reinstall/update? (y/n): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            break
+        elif [[ $REPLY =~ ^[Nn]$ ]]; then
+            exit 0
+        else
+            echo "Invalid input. Please enter 'y' or 'n'."
+        fi
+    done
 fi
 
 echo ""
 echo "This will install GitHub MCP Server to $INSTALL_DIR"
-read -p "Continue? (y/n): " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    exit 0
-fi
+while true; do
+    read -p "Continue? (y/n): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        break
+    elif [[ $REPLY =~ ^[Nn]$ ]]; then
+        exit 0
+    else
+        echo "Invalid input. Please enter 'y' or 'n'."
+    fi
+done
 
 # Get download URL
 echo ""
@@ -199,8 +211,19 @@ EOF
 }
 
 echo ""
-read -p "Do you have a GitHub Personal Access Token (PAT)? (y/n): " -n 1 -r
-echo
+while true; do
+    read -p "Do you have a GitHub Personal Access Token (PAT)? (y/n): " -n 1 -r
+    echo
+    
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        break
+    elif [[ $REPLY =~ ^[Nn]$ ]]; then
+        REPLY="n"
+        break
+    else
+        echo "Invalid input. Please enter 'y' or 'n'."
+    fi
+done
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo ""
