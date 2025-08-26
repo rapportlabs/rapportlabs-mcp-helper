@@ -2,8 +2,38 @@
 
 set -e
 
-echo "Optional MCP Server Installer"
-echo "============================="
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Function to print colored output
+print_success() { echo -e "${GREEN}$1${NC}"; }
+print_error() { echo -e "${RED}$1${NC}"; }
+print_warning() { echo -e "${YELLOW}$1${NC}"; }
+print_info() { echo -e "${BLUE}$1${NC}"; }
+
+echo "========================================"
+echo "GitHub MCP Server Installation Script"
+echo "========================================"
+echo ""
+print_info "[INFO] This script will install the GitHub MCP Server for use with Claude Desktop."
+print_info "[INFO] The GitHub MCP Server allows Claude to interact with GitHub repositories."
+echo ""
+while true; do
+    read -p "Do you want to install the GitHub MCP Server? (y/n): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        break
+    elif [[ $REPLY =~ ^[Nn]$ ]]; then
+        print_warning "[CANCELLED] Installation cancelled by user."
+        exit 0
+    else
+        print_error "[ERROR] Invalid input. Please enter 'y' or 'n'."
+    fi
+done
 
 # Configuration
 REPO="github/github-mcp-server"
@@ -13,18 +43,18 @@ INSTALL_DIR="/usr/local/bin"
 ARCH=$(uname -m)
 if [ "$ARCH" = "x86_64" ]; then
     ARCH_SUFFIX="x86_64"
-    echo "Detected: Intel Mac"
+    print_info "[PLATFORM] Detected: Intel Mac"
 elif [ "$ARCH" = "arm64" ]; then
     ARCH_SUFFIX="arm64"
-    echo "Detected: Apple Silicon Mac (M1/M2/M3)"
+    print_info "[PLATFORM] Detected: Apple Silicon Mac (M1/M2/M3)"
 else
-    echo "Error: Unsupported architecture: $ARCH"
+    print_error "[ERROR] Unsupported architecture: $ARCH"
     exit 1
 fi
 
 # Check if already installed
 if [ -x "$INSTALL_DIR/github-mcp-server" ]; then
-    echo "GitHub MCP Server is already installed at $INSTALL_DIR/github-mcp-server"
+    print_warning "[CHECK] GitHub MCP Server is already installed at $INSTALL_DIR/github-mcp-server"
     while true; do
         read -p "Do you want to reinstall/update? (y/n): " -n 1 -r
         echo
@@ -33,13 +63,13 @@ if [ -x "$INSTALL_DIR/github-mcp-server" ]; then
         elif [[ $REPLY =~ ^[Nn]$ ]]; then
             exit 0
         else
-            echo "Invalid input. Please enter 'y' or 'n'."
+            print_error "[ERROR] Invalid input. Please enter 'y' or 'n'."
         fi
     done
 fi
 
 echo ""
-echo "This will install GitHub MCP Server to $INSTALL_DIR"
+print_info "[INSTALL] This will install GitHub MCP Server to $INSTALL_DIR"
 while true; do
     read -p "Continue? (y/n): " -n 1 -r
     echo
@@ -48,13 +78,13 @@ while true; do
     elif [[ $REPLY =~ ^[Nn]$ ]]; then
         exit 0
     else
-        echo "Invalid input. Please enter 'y' or 'n'."
+        print_error "[ERROR] Invalid input. Please enter 'y' or 'n'."
     fi
 done
 
 # Get download URL
 echo ""
-echo "Fetching latest release information..."
+print_info "[FETCH] Fetching latest release information..."
 DOWNLOAD_URL=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | \
     grep "browser_download_url.*Darwin_${ARCH_SUFFIX}.tar.gz" | \
     sed 's/.*"browser_download_url": "\(.*\)".*/\1/')
@@ -64,11 +94,11 @@ VERSION=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | \
     sed 's/.*"tag_name": "\(.*\)".*/\1/')
 
 if [ -z "$DOWNLOAD_URL" ]; then
-    echo "Error: Failed to find download URL"
+    print_error "[ERROR] Failed to find download URL"
     exit 1
 fi
 
-echo "Found version: $VERSION"
+print_success "[VERSION] Found version: $VERSION"
 
 # Create temp directory
 TEMP_DIR=$(mktemp -d)
@@ -76,11 +106,11 @@ trap "rm -rf $TEMP_DIR" EXIT
 
 # Download
 echo ""
-echo "Downloading GitHub MCP Server..."
+print_info "[DOWNLOAD] Downloading GitHub MCP Server..."
 curl -L --progress-bar -o "$TEMP_DIR/github-mcp-server.tar.gz" "$DOWNLOAD_URL"
 
 # Extract
-echo "Extracting..."
+print_info "[EXTRACT] Extracting archive..."
 tar -xzf "$TEMP_DIR/github-mcp-server.tar.gz" -C "$TEMP_DIR"
 
 # Find the binary
@@ -93,13 +123,13 @@ for file in "$TEMP_DIR"/* "$TEMP_DIR"/*/*; do
 done
 
 if [ -z "$BINARY" ]; then
-    echo "Error: Binary not found in archive"
+    print_error "[ERROR] Binary not found in archive"
     exit 1
 fi
 
 # Install with sudo
 echo ""
-echo "Installing to $INSTALL_DIR (requires admin password)..."
+print_warning "[SUDO] Installing to $INSTALL_DIR (Enter MacBook Password)..."
 sudo mkdir -p "$INSTALL_DIR"
 sudo mv "$BINARY" "$INSTALL_DIR/github-mcp-server"
 sudo chmod +x "$INSTALL_DIR/github-mcp-server"
@@ -107,17 +137,17 @@ sudo chmod +x "$INSTALL_DIR/github-mcp-server"
 # Verify installation
 if [ -x "$INSTALL_DIR/github-mcp-server" ]; then
     echo ""
-    echo "✅ Installation successful!"
-    echo "GitHub MCP Server $VERSION has been installed to $INSTALL_DIR"
+    print_success "✅ [SUCCESS] Installation successful!"
+    print_success "[INSTALLED] GitHub MCP Server $VERSION has been installed to $INSTALL_DIR"
 else
-    echo "⚠️ Installation may have failed. Please check $INSTALL_DIR/github-mcp-server"
+    print_error "⚠️ [ERROR] Installation may have failed. Please check $INSTALL_DIR/github-mcp-server"
     exit 1
 fi
 
 # Claude Desktop Configuration
 echo ""
 echo "=========================================="
-echo "Claude Desktop Configuration"
+print_info "Claude Desktop Configuration"
 echo "=========================================="
 
 CONFIG_FILE="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
@@ -191,7 +221,7 @@ create_simple_config() {
     # If file exists, backup and overwrite
     if [ -f "$config_file" ]; then
         cp "$config_file" "$config_file.backup"
-        echo "⚠️  Note: Existing config backed up to $config_file.backup"
+        print_warning "⚠️  [BACKUP] Existing config backed up to $config_file.backup"
     fi
     
     # Create new config with just github server
@@ -221,49 +251,49 @@ while true; do
         REPLY="n"
         break
     else
-        echo "Invalid input. Please enter 'y' or 'n'."
+        print_error "[ERROR] Invalid input. Please enter 'y' or 'n'."
     fi
 done
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo ""
-    echo "Enter your GitHub Personal Access Token:"
+    print_info "[INPUT] Enter your GitHub Personal Access Token:"
     read -s GITHUB_TOKEN
     echo ""
     
     if [ -n "$GITHUB_TOKEN" ]; then
-        echo "Updating configuration..."
+        print_info "[CONFIG] Updating configuration..."
         
         # Try to use osascript/JXA first (works on all macOS without Xcode)
         result=$(update_config_with_jxa "$GITHUB_TOKEN" "$CONFIG_FILE" 2>&1)
         
         if [[ "$result" == "success" ]]; then
-            echo "✅ Configuration updated successfully!"
+            print_success "✅ [SUCCESS] Configuration updated successfully!"
             if [ -f "$CONFIG_FILE.backup" ]; then
-                echo "   Previous config backed up to: $CONFIG_FILE.backup"
+                print_info "[BACKUP] Previous config backed up to: $CONFIG_FILE.backup"
             fi
         else
-            echo "⚠️  Advanced config merge failed, using simple replacement..."
+            print_warning "⚠️  [FALLBACK] Advanced config merge failed, using simple replacement..."
             create_simple_config "$GITHUB_TOKEN" "$CONFIG_FILE"
-            echo "✅ Configuration created (simple mode)"
-            echo "   If you had other MCP servers, restore from: $CONFIG_FILE.backup"
+            print_success "✅ [SUCCESS] Configuration created (simple mode)"
+            print_info "[NOTE] If you had other MCP servers, restore from: $CONFIG_FILE.backup"
         fi
         
         echo ""
-        echo "⚠️  Please restart Claude Desktop for the changes to take effect."
+        print_warning "⚠️  [RESTART] Please restart Claude Desktop for the changes to take effect."
     else
-        echo "No token provided. Configuration skipped."
+        print_warning "[SKIP] No token provided. Configuration skipped."
     fi
 else
     echo ""
-    echo "To get a GitHub Personal Access Token:"
-    echo "1. Go to: https://github.com/settings/tokens"
-    echo "2. Click 'Generate new token (classic)'"
-    echo "3. Give it 'repo' scope"
-    echo "4. Run this installer again with your token"
+    print_info "[HELP] To get a GitHub Personal Access Token:"
+    print_info "  1. Go to: https://github.com/settings/tokens"
+    print_info "  2. Click 'Generate new token (classic)'"
+    print_info "  3. Give it 'repo' scope"
+    print_info "  4. Run this installer again with your token"
     echo ""
-    echo "Installation completed, configuration skipped."
+    print_warning "[COMPLETE] Installation completed, configuration skipped."
 fi
 
 echo ""
-echo "Done!"
+print_success "✅ [DONE] Script completed successfully!"
