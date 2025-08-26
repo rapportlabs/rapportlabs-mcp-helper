@@ -1,10 +1,9 @@
 #!/bin/bash
 
-# GitHub MCP Server Installer - Final Version (No Xcode Required)
 set -e
 
-echo "GitHub MCP Server Installer"
-echo "==========================="
+echo "Optional MCP Server Installer"
+echo "============================="
 
 # Configuration
 REPO="github/github-mcp-server"
