@@ -24,11 +24,32 @@ echo Writing MCP configuration to %CONFIG_FILE%...
 (
 echo {
 echo   "mcpServers": {
-echo     "rpls": {
+echo     "rpwiki": {
 echo       "command": "npx",
 echo       "args": [
 echo         "mcp-remote",
-echo         "https://agentgateway.damoa.rapportlabs.dance/mcp"
+echo         "https://rapportwiki-mcp.damoa.rapportlabs.dance/mcp"
+echo       ]
+echo     },
+echo     "notion": {
+echo       "command": "npx",
+echo       "args": [
+echo         "mcp-remote",
+echo         "https://notion-mcp.damoa.rapportlabs.dance/mcp"
+echo       ]
+echo     },
+echo     "bq": {
+echo       "command": "npx",
+echo       "args": [
+echo         "mcp-remote",
+echo         "https://bigquery-mcp.damoa.rapportlabs.dance/mcp"
+echo       ]
+echo     },
+echo     "slack": {
+echo       "command": "npx",
+echo       "args": [
+echo         "mcp-remote",
+echo         "https://slack-mcp.damoa.rapportlabs.dance/sse"
 echo       ]
 echo     },
 echo     "queenit": {
@@ -48,7 +69,10 @@ if !errorlevel! equ 0 (
     echo %CONFIG_FILE%
     echo.
     echo The following MCP servers have been configured:
-    echo - rpls: https://agentgateway.damoa.rapportlabs.dance/mcp
+    echo - rpwiki: https://rapportwiki-mcp.damoa.rapportlabs.dance/mcp
+    echo - notion: https://notion-mcp.damoa.rapportlabs.dance/mcp
+    echo - bq: https://bigquery-mcp.damoa.rapportlabs.dance/mcp
+    echo - slack: https://slack-mcp.damoa.rapportlabs.dance/sse
     echo - queenit: https://mcp.rapportlabs.kr/mcp
     echo.
     echo Please restart Claude Desktop for the changes to take effect.
