@@ -312,11 +312,32 @@ echo "Creating Claude Desktop configuration..."
 cat > "$CONFIG_FILE" << 'EOF'
 {
   "mcpServers": {
-    "rpls": {
+    "rpwiki": {
       "command": "npx",
       "args": [
         "mcp-remote",
-        "https://agentgateway.damoa.rapportlabs.dance/mcp"
+        "https://rapportwiki-mcp.damoa.rapportlabs.dance/mcp"
+      ]
+    },
+    "notion": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://notion-mcp.damoa.rapportlabs.dance/mcp"
+      ]
+    },
+    "bigquery": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://bigquery-mcp.damoa.rapportlabs.dance/mcp"
+      ]
+    },
+    "slack": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://slack-mcp.damoa.rapportlabs.dance/sse"
       ]
     },
     "queenit": {
