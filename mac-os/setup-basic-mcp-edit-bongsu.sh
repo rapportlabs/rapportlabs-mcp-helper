@@ -65,9 +65,44 @@ add_nvm_to_profile() {
   fi
 }
 
+write_claude_desktop_config() {
+  local target="$1"
+  {
+    printf '{\n'
+    printf '  "mcpServers": {\n'
+    local total="${#MCP_SERVERS[@]}"
+    for idx in "${!MCP_SERVERS[@]}"; do
+      local entry="${MCP_SERVERS[$idx]}"
+      local name="${entry%%|*}"
+      local url="${entry#*|}"
+      printf '    "%s": {\n' "$name"
+      printf '      "command": "npx",\n'
+      printf '      "args": [\n'
+      printf '        "mcp-remote",\n'
+      printf '        "%s"\n' "$url"
+      printf '      ]\n'
+      printf '    }'
+      if (( idx < total - 1 )); then
+        printf ','
+      fi
+      printf '\n'
+    done
+    printf '  }\n'
+    printf '}\n'
+  } >"$target"
+}
+
 NVM_VERSION="v0.39.0"
 NODE_VERSION="24.4.1"
 MCP_REMOTE_VERSION="0.1.18"
+
+MCP_SERVERS=(
+  "rpwiki|https://rapportwiki-mcp.damoa.rapportlabs.dance/mcp"
+  "notion|https://notion-mcp.damoa.rapportlabs.dance/mcp"
+  "bigquery|https://bigquery-mcp.damoa.rapportlabs.dance/mcp"
+  "slack|https://slack-mcp.damoa.rapportlabs.dance/sse"
+  "queenit|https://mcp.rapportlabs.kr/mcp"
+)
 
 echo "Versions to install:"
 echo "  nvm: $NVM_VERSION"
@@ -297,6 +332,67 @@ fi
 print_success "[SUCCESS] mcp-remote installed!"
 echo
 
+NPX_CMD="$NODE_BIN/npx"
+NPM_CMD="$NODE_BIN/npm"
+
+echo "========================================"
+echo "Configuring Claude Code MCP servers"
+echo "========================================"
+echo
+
+CLAUDE_BIN="$NODE_BIN/claude"
+CLAUDE_CMD=()
+
+if [ ! -x "$NPM_CMD" ]; then
+  print_error "[ERROR] npm not found; cannot configure Claude Code CLI."
+  exit 1
+fi
+
+if ! command -v claude >/dev/null 2>&1 && [ ! -x "$CLAUDE_BIN" ]; then
+  echo "Installing Claude Code CLI globally..."
+  if "$NPM_CMD" install -g @anthropic-ai/claude-code >/dev/null 2>&1; then
+    print_success "[SUCCESS] Claude Code CLI installed globally."
+  else
+    print_error "[ERROR] Failed to install Claude Code CLI globally."
+    echo "You can retry manually with:"
+    echo "  $NPM_CMD install -g @anthropic-ai/claude-code"
+    exit 1
+  fi
+else
+  print_info "Claude Code CLI already available."
+fi
+
+if command -v claude >/dev/null 2>&1; then
+  CLAUDE_CMD=("claude")
+elif [ -x "$CLAUDE_BIN" ]; then
+  CLAUDE_CMD=("$CLAUDE_BIN")
+else
+  if [ ! -x "$NPX_CMD" ]; then
+    print_error "[ERROR] npx command not available; cannot configure Claude Code CLI."
+    exit 1
+  fi
+  CLAUDE_CMD=("$NPX_CMD" "-y" "@anthropic-ai/claude-code")
+fi
+
+existing="$("${CLAUDE_CMD[@]}" mcp list 2>/dev/null || true)"
+for entry in "${MCP_SERVERS[@]}"; do
+  name="${entry%%|*}"
+  url="${entry#*|}"
+  if [[ "$existing" == *"$url"* ]]; then
+    echo "Claude Code already configured for $name ($url) - skipping"
+    continue
+  fi
+  echo "Adding Claude Code MCP server: $name ($url)"
+  if "${CLAUDE_CMD[@]}" mcp add "$name" --scope user -- "$NPX_CMD" "-y" "mcp-remote" "$url" >/dev/null 2>&1; then
+    print_success "[SUCCESS] Added $name to Claude Code (user scope)"
+    existing+=" $url"
+  else
+    print_error "[ERROR] Failed to add $name to Claude Code (user scope)"
+    exit 1
+  fi
+done
+echo
+
 echo "========================================"
 echo "Configuring Claude Desktop MCP servers"
 echo "========================================"
@@ -321,49 +417,7 @@ if [ -f "$CONFIG_FILE" ]; then
   print_info "Backup created successfully"
 fi
 
-cat >"$CONFIG_FILE" <<'EOF'
-{
-  "mcpServers": {
-    "rpwiki": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "https://rapportwiki-mcp.damoa.rapportlabs.dance/mcp"
-      ]
-    },
-    "notion": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "https://notion-mcp.damoa.rapportlabs.dance/mcp"
-      ]
-    },
-    "bigquery": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "https://bigquery-mcp.damoa.rapportlabs.dance/mcp"
-      ]
-    },
-    "slack": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "https://slack-mcp.damoa.rapportlabs.dance/sse"
-      ]
-    },
-    "queenit": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "https://mcp.rapportlabs.kr/mcp"
-      ]
-    }
-  }
-}
-EOF
-
-if [ $? -eq 0 ]; then
+if write_claude_desktop_config "$CONFIG_FILE"; then
   print_success "[SUCCESS] Configuration created successfully!"
 else
   print_error "[ERROR] Failed to create configuration file"
@@ -388,16 +442,25 @@ echo "Node.js version: $("$NODE_EXEC" --version)"
 echo "NPM version: $("$NODE_BIN/npm" --version)"
 echo "NPX version: $("$NODE_BIN/npx" --version)"
 echo "mcp-remote version: $MCP_VERSION"
+CLAUDE_STATUS="not available"
+if command -v claude >/dev/null 2>&1; then
+  CLAUDE_STATUS="$(command -v claude)"
+elif [ -n "${CLAUDE_BIN:-}" ] && [ -x "$CLAUDE_BIN" ]; then
+  CLAUDE_STATUS="$CLAUDE_BIN"
+else
+  CLAUDE_STATUS="npx fallback"
+fi
+echo "Claude Code CLI: $CLAUDE_STATUS"
 echo
 echo "MCP Configuration:"
 echo "------------------"
 echo "Config file: $CONFIG_FILE"
 echo "Configured servers:"
-echo "  - rpwiki: https://rapportwiki-mcp.damoa.rapportlabs.dance/mcp"
-echo "  - notion: https://notion-mcp.damoa.rapportlabs.dance/mcp"
-echo "  - bigquery: https://bigquery-mcp.damoa.rapportlabs.dance/mcp"
-echo "  - slack: https://slack-mcp.damoa.rapportlabs.dance/sse"
-echo "  - queenit: https://mcp.rapportlabs.kr/mcp"
+for entry in "${MCP_SERVERS[@]}"; do
+  server_name="${entry%%|*}"
+  server_url="${entry#*|}"
+  echo "  - $server_name: $server_url"
+done
 echo
 
 print_success "========================================"
