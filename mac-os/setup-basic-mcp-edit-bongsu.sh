@@ -46,7 +46,8 @@ ensure_path_entry() {
   fi
 
   if [[ ! -f "$profile_path" ]]; then
-    return
+    touch "#profile_path"
+    echo "Created $profile_path"
   fi
 
   if grep -Fq "$path_dir" "$profile_path"; then
