@@ -1,27 +1,34 @@
 #!/bin/bash
+
 set -euo pipefail
+
 # ANSI color codes
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
+
 print_success() { echo -e "${GREEN}$1${NC}"; }
 print_error() { echo -e "${RED}$1${NC}"; }
 print_warning() { echo -e "${YELLOW}$1${NC}"; }
 print_info() { echo -e "${BLUE}$1${NC}"; }
+
 echo "========================================"
 echo "Node.js 24.4.1 and mcp-remote 0.1.18 Setup Script"
 echo "(No git/Xcode dependencies - Using nvm for Node.js management)"
 echo "========================================"
 echo
+
 OS="$(uname -s)"
 if [[ "$OS" != "Darwin" ]]; then
   print_error "[ERROR] This script is designed for macOS only"
   exit 1
 fi
+
 print_info "[PLATFORM CHECK] Running on macOS - OK"
 echo
+
 if ! command -v curl >/dev/null 2>&1; then
   print_error "[ERROR] Required tool 'curl' not found!"
   echo "curl should be available on macOS by default."
@@ -29,14 +36,41 @@ if ! command -v curl >/dev/null 2>&1; then
 fi
 print_info "[SYSTEM CHECK] curl is available - OK"
 echo
+
+add_nvm_to_profile() {
+  local profile_path="$1"
+  local ensure_file="${2:-0}"
+
+  if [[ "$ensure_file" -eq 1 && ! -f "$profile_path" ]]; then
+    touch "$profile_path"
+    echo "Created $profile_path"
+  fi
+
+  if [[ ! -f "$profile_path" ]]; then
+    return
+  fi
+
+  if ! grep -Fq 'export NVM_DIR="$HOME/.nvm"' "$profile_path"; then
+    {
+      echo
+      echo 'export NVM_DIR="$HOME/.nvm"'
+      echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # Loads nvm'
+      echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # Loads nvm bash_completion'
+    } >>"$profile_path"
+    echo "Added nvm configuration to $profile_path"
+  fi
+}
+
 NVM_VERSION="v0.39.0"
 NODE_VERSION="24.4.1"
 MCP_REMOTE_VERSION="0.1.18"
+
 echo "Versions to install:"
 echo "  nvm: $NVM_VERSION"
 echo "  Node.js: $NODE_VERSION"
 echo "  mcp-remote: $MCP_REMOTE_VERSION"
 echo
+
 SKIP_NVM_INSTALL=0
 if [ -s "$HOME/.nvm/nvm.sh" ]; then
   print_info "[NVM CHECK] nvm is already installed"
@@ -49,12 +83,15 @@ if [ -s "$HOME/.nvm/nvm.sh" ]; then
 else
   print_info "[NVM CHECK] nvm is not installed - will install $NVM_VERSION"
 fi
+
 echo
 echo "Checking for existing Node.js installation..."
 SKIP_NODE_INSTALL=0
+
 export NVM_DIR="$HOME/.nvm"
 # shellcheck source=/dev/null
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" >/dev/null 2>&1
+
 if command -v node >/dev/null 2>&1; then
   CURRENT_NODE_VERSION="$(node --version 2>/dev/null || echo "unknown")"
   echo "Found existing Node.js: $CURRENT_NODE_VERSION"
@@ -68,6 +105,7 @@ else
   echo "Node.js is NOT installed."
   echo "Will install Node.js v$NODE_VERSION using nvm"
 fi
+
 echo
 echo "========================================"
 echo "Ready to proceed with installation"
@@ -82,6 +120,7 @@ echo "  • Install global npm packages that may conflict with your projects"
 echo
 echo "For experienced developers, consider manual installation instead."
 echo
+
 while true; do
   read -rp "Do you want to continue with the installation? (y/n): " -n 1 REPLY
   echo
@@ -94,6 +133,7 @@ while true; do
     print_error "Invalid input. Please enter 'y' or 'n'."
   fi
 done
+
 echo
 if [ "$SKIP_NVM_INSTALL" -eq 0 ]; then
   echo "Installing nvm $NVM_VERSION..."
@@ -111,34 +151,64 @@ if [ "$SKIP_NVM_INSTALL" -eq 0 ]; then
   mv "$TEMP_DIR/nvm-${NVM_VERSION#v}"/* "$HOME/.nvm/"
   rm -rf "$TEMP_DIR"
   chmod +x "$HOME/.nvm/nvm.sh"
-  for profile in "$HOME/.bash_profile" "$HOME/.zshrc" "$HOME/.profile" "$HOME/.bashrc"; do
-    if [[ -f "$profile" ]]; then
-      if ! grep -q 'export NVM_DIR="$HOME/.nvm"' "$profile"; then
-        {
-          echo 'export NVM_DIR="$HOME/.nvm"'
-          echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # Loads nvm'
-          echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # Loads nvm bash_completion'
-        } >>"$profile"
-        echo "Added nvm configuration to $profile"
+
+  case "${SHELL:-}" in
+    *zsh*) primary_profile="$HOME/.zshrc" ;;
+    *bash*) primary_profile="$HOME/.bash_profile" ;;
+    *) primary_profile="$HOME/.zshrc" ;;
+  esac
+
+  PROFILE_CANDIDATES=(
+    "$primary_profile"
+    "$HOME/.zprofile"
+    "$HOME/.profile"
+    "$HOME/.bash_profile"
+    "$HOME/.bashrc"
+    "$HOME/.zshrc"
+  )
+
+  processed_profiles=()
+  for candidate in "${PROFILE_CANDIDATES[@]}"; do
+    if [[ -z "$candidate" ]]; then
+      continue
+    fi
+    already_processed=0
+    for processed in "${processed_profiles[@]}"; do
+      if [[ "$processed" == "$candidate" ]]; then
+        already_processed=1
+        break
       fi
+    done
+    if [[ "$already_processed" -eq 1 ]]; then
+      continue
+    fi
+    processed_profiles+=("$candidate")
+    if [[ "$candidate" == "$primary_profile" ]]; then
+      add_nvm_to_profile "$candidate" 1
+    else
+      add_nvm_to_profile "$candidate" 0
     fi
   done
   print_success "[SUCCESS] nvm $NVM_VERSION installed successfully (without git)!"
   echo
 fi
+
 echo "Loading nvm..."
 export NVM_DIR="$HOME/.nvm"
 # shellcheck source=/dev/null
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 [ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"
+
 if ! command -v nvm >/dev/null 2>&1; then
   print_error "[ERROR] Failed to load nvm!"
   echo "Please restart your terminal and run this script again."
   exit 1
 fi
+
 print_success "[SUCCESS] nvm loaded successfully!"
 echo "nvm version: $(nvm --version)"
 echo
+
 if [ "$SKIP_NODE_INSTALL" -eq 1 ]; then
   echo "Skipping Node.js installation - already at target version."
 else
@@ -154,18 +224,22 @@ else
   print_success "[SUCCESS] Node.js v$NODE_VERSION installed and set as default!"
 fi
 echo
+
 echo "Verifying Node.js installation..."
 export NVM_DIR="$HOME/.nvm"
 # shellcheck source=/dev/null
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 nvm use "$NODE_VERSION" >/dev/null 2>&1
+
 NODE_PREFIX="$NVM_DIR/versions/node/v$NODE_VERSION"
 NODE_BIN="$NODE_PREFIX/bin"
 NODE_EXEC="$NODE_BIN/node"
+
 if [ ! -x "$NODE_EXEC" ]; then
   print_error "[ERROR] Node.js binaries not found at $NODE_EXEC"
   exit 1
 fi
+
 CURRENT_VERSION="$("$NODE_EXEC" --version)"
 if [[ "$CURRENT_VERSION" != "v$NODE_VERSION" ]]; then
   print_error "[ERROR] Node.js version mismatch!"
@@ -173,6 +247,7 @@ if [[ "$CURRENT_VERSION" != "v$NODE_VERSION" ]]; then
   echo "Current: $CURRENT_VERSION"
   exit 1
 fi
+
 echo
 print_success "[SUCCESS] Node.js installed successfully!"
 echo
@@ -180,20 +255,25 @@ echo "Node version: $("$NODE_EXEC" --version)"
 echo "NPM version: $("$NODE_BIN/npm" --version)"
 echo "NPX version: $("$NODE_BIN/npx" --version)"
 echo
+
 echo "========================================"
 echo "Installing mcp-remote@$MCP_REMOTE_VERSION"
 echo "========================================"
 echo
+
 export NVM_DIR="$HOME/.nvm"
 # shellcheck source=/dev/null
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 nvm use "$NODE_VERSION" >/dev/null 2>&1
+
 echo "Using Node.js $("$NODE_EXEC" --version) and npm $("$NODE_BIN/npm" --version)"
 echo
+
 if ! "$NODE_BIN/npm" install -g "mcp-remote@$MCP_REMOTE_VERSION"; then
   print_error "[ERROR] Failed to install mcp-remote@$MCP_REMOTE_VERSION"
   exit 1
 fi
+
 echo
 echo "Verifying mcp-remote installation..."
 MCP_VERSION="$("$NODE_BIN/npm" list -g mcp-remote 2>/dev/null | grep mcp-remote@ | sed 's/.*mcp-remote@//' | sed 's/ .*//' || echo "unknown")"
@@ -201,14 +281,18 @@ echo "mcp-remote version: $MCP_VERSION"
 if [[ "$MCP_VERSION" != "$MCP_REMOTE_VERSION" ]]; then
   print_warning "[WARNING] mcp-remote version might not match exactly. Expected: $MCP_REMOTE_VERSION, Got: $MCP_VERSION"
 fi
+
 print_success "[SUCCESS] mcp-remote installed!"
 echo
+
 echo "========================================"
 echo "Configuring Claude Desktop MCP servers"
 echo "========================================"
 echo
+
 CONFIG_DIR="$HOME/Library/Application Support/Claude"
 CONFIG_FILE="$CONFIG_DIR/claude_desktop_config.json"
+
 if [ ! -d "$CONFIG_DIR" ]; then
   echo "Creating configuration directory: $CONFIG_DIR"
   mkdir -p "$CONFIG_DIR"
@@ -217,12 +301,14 @@ if [ ! -d "$CONFIG_DIR" ]; then
     exit 1
   fi
 fi
+
 if [ -f "$CONFIG_FILE" ]; then
   echo "Existing configuration found at $CONFIG_FILE"
   echo "Creating backup..."
   cp "$CONFIG_FILE" "$CONFIG_FILE.backup.$(date +%Y%m%d_%H%M%S)"
   print_info "Backup created successfully"
 fi
+
 cat >"$CONFIG_FILE" <<'EOF'
 {
   "mcpServers": {
@@ -264,21 +350,25 @@ cat >"$CONFIG_FILE" <<'EOF'
   }
 }
 EOF
+
 if [ $? -eq 0 ]; then
   print_success "[SUCCESS] Configuration created successfully!"
 else
   print_error "[ERROR] Failed to create configuration file"
   exit 1
 fi
+
 echo
 echo "========================================"
 echo "Verification Complete!"
 echo "========================================"
 echo
+
 export NVM_DIR="$HOME/.nvm"
 # shellcheck source=/dev/null
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 nvm use "$NODE_VERSION" >/dev/null 2>&1
+
 echo "Installed Software:"
 echo "-------------------"
 echo "nvm version: $(nvm --version)"
@@ -297,6 +387,7 @@ echo "  - bigquery: https://bigquery-mcp.damoa.rapportlabs.dance/mcp"
 echo "  - slack: https://slack-mcp.damoa.rapportlabs.dance/sse"
 echo "  - queenit: https://mcp.rapportlabs.kr/mcp"
 echo
+
 print_success "========================================"
 print_success "INSTALLATION COMPLETE!"
 print_success "========================================"
@@ -308,10 +399,12 @@ echo "  npx mcp-remote <url>"
 echo
 echo "Setup complete! 🎉"
 echo
+
 NEEDS_ENV_REFRESH=0
 if ! command -v node >/dev/null 2>&1; then
   NEEDS_ENV_REFRESH=1
 fi
+
 if [ "$NEEDS_ENV_REFRESH" -eq 1 ]; then
   print_warning "Node.js is installed but not yet available in your current shell session."
   print_info "You can apply the environment immediately with:"
