@@ -37,6 +37,32 @@ fi
 print_info "[SYSTEM CHECK] curl is available - OK"
 echo
 
+ensure_path_entry() {
+  local profile_path="$1"
+  local path_dir="$2"
+
+  if [[ -z "${profile_path:-}" || -z "${path_dir:-}" ]]; then
+    return
+  fi
+
+  if [[ ! -f "$profile_path" ]]; then
+    return
+  fi
+
+  if grep -Fq "$path_dir" "$profile_path"; then
+    return
+  fi
+
+  {
+    printf '\n'
+    printf '# Added by Node MCP setup: ensure custom CLI directory on PATH\n'
+    printf 'if [[ ":$PATH:" != *":%s:"* ]]; then\n' "$path_dir"
+    printf '  export PATH="%s:$PATH"\n' "$path_dir"
+    printf 'fi\n'
+  } >>"$profile_path"
+  echo "Added $path_dir to PATH in $profile_path"
+}
+
 add_nvm_to_profile() {
   local profile_path="$1"
   local ensure_file="${2:-0}"
@@ -102,6 +128,15 @@ MCP_SERVERS=(
   "bigquery|https://bigquery-mcp.damoa.rapportlabs.dance/mcp"
   "slack|https://slack-mcp.damoa.rapportlabs.dance/sse"
   "queenit|https://mcp.rapportlabs.kr/mcp"
+)
+
+LOCAL_BIN_DIR="$HOME/.local/bin"
+PATH_PROFILE_FILES=(
+  "$HOME/.zshrc"
+  "$HOME/.zprofile"
+  "$HOME/.profile"
+  "$HOME/.bash_profile"
+  "$HOME/.bashrc"
 )
 
 echo "Versions to install:"
@@ -391,6 +426,35 @@ for entry in "${MCP_SERVERS[@]}"; do
     exit 1
   fi
 done
+echo
+
+echo "Ensuring Claude Code CLI is available on PATH..."
+CLAUDE_REAL_PATH="$(command -v claude 2>/dev/null || true)"
+if [ -z "$CLAUDE_REAL_PATH" ] && [ -n "${CLAUDE_BIN:-}" ] && [ -x "$CLAUDE_BIN" ]; then
+  CLAUDE_REAL_PATH="$CLAUDE_BIN"
+fi
+
+if [ -n "$CLAUDE_REAL_PATH" ]; then
+  mkdir -p "$LOCAL_BIN_DIR"
+  CLAUDE_WRAPPER="$LOCAL_BIN_DIR/claude"
+  cat >"$CLAUDE_WRAPPER" <<EOF
+#!/bin/bash
+export NVM_DIR="$HOME/.nvm"
+if [ -s "\$NVM_DIR/nvm.sh" ]; then
+  . "\$NVM_DIR/nvm.sh"
+fi
+nvm use $NODE_VERSION >/dev/null 2>&1 || true
+exec "$CLAUDE_REAL_PATH" "\$@"
+EOF
+  chmod +x "$CLAUDE_WRAPPER"
+  print_success "[SUCCESS] Created Claude Code wrapper at $CLAUDE_WRAPPER"
+
+  for profile_file in "${PATH_PROFILE_FILES[@]}"; do
+    ensure_path_entry "$profile_file" "$LOCAL_BIN_DIR"
+  done
+else
+  print_warning "[WARNING] Unable to determine Claude Code CLI path for wrapper creation."
+fi
 echo
 
 echo "========================================"
