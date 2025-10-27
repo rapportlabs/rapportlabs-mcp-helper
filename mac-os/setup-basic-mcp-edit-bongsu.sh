@@ -40,6 +40,7 @@ echo
 add_nvm_to_profile() {
   local profile_path="$1"
   local ensure_file="${2:-0}"
+  local node_version="${3:-$NODE_VERSION}"
 
   if [[ "$ensure_file" -eq 1 && ! -f "$profile_path" ]]; then
     touch "$profile_path"
@@ -52,10 +53,13 @@ add_nvm_to_profile() {
 
   if ! grep -Fq 'export NVM_DIR="$HOME/.nvm"' "$profile_path"; then
     {
-      echo
-      echo 'export NVM_DIR="$HOME/.nvm"'
-      echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # Loads nvm'
-      echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # Loads nvm bash_completion'
+      printf '\n'
+      printf 'export NVM_DIR="$HOME/.nvm"\n'
+      printf '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # Loads nvm\n'
+      printf '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # Loads nvm bash_completion\n'
+      printf 'if command -v nvm >/dev/null 2>&1; then\n'
+      printf '  nvm use default >/dev/null 2>&1 || nvm use %s >/dev/null 2>&1 || true\n' "$node_version"
+      printf 'fi\n'
     } >>"$profile_path"
     echo "Added nvm configuration to $profile_path"
   fi
@@ -184,9 +188,17 @@ if [ "$SKIP_NVM_INSTALL" -eq 0 ]; then
     fi
     processed_profiles+=("$candidate")
     if [[ "$candidate" == "$primary_profile" ]]; then
-      add_nvm_to_profile "$candidate" 1
+      ensure_flag=0
+      if [[ "$candidate" == "$primary_profile" ]]; then
+        ensure_flag=1
+      elif [[ "$candidate" == "$HOME/.zprofile" ]]; then
+        ensure_flag=1
+      elif [[ "$candidate" == "$HOME/.bash_profile" ]]; then
+        ensure_flag=1
+      fi
+      add_nvm_to_profile "$candidate" "$ensure_flag" "$NODE_VERSION"
     else
-      add_nvm_to_profile "$candidate" 0
+      add_nvm_to_profile "$candidate" 0 "$NODE_VERSION"
     fi
   done
   print_success "[SUCCESS] nvm $NVM_VERSION installed successfully (without git)!"
@@ -400,23 +412,9 @@ echo
 echo "Setup complete! 🎉"
 echo
 
-NEEDS_ENV_REFRESH=0
-if ! command -v node >/dev/null 2>&1; then
-  NEEDS_ENV_REFRESH=1
-fi
-
-if [ "$NEEDS_ENV_REFRESH" -eq 1 ]; then
-  print_warning "Node.js is installed but not yet available in your current shell session."
-  print_info "You can apply the environment immediately with:"
-  echo "  export NVM_DIR=\"$HOME/.nvm\""
-  echo "  . \"\$NVM_DIR/nvm.sh\""
-  echo "  nvm use $NODE_VERSION"
-  if [ -t 0 ] && [ -t 1 ] && [ -n "${SHELL:-}" ] && [ -x "${SHELL:-}" ]; then
-    echo
-    print_info "Reloading your login shell now to pick up nvm configuration..."
-    exec "$SHELL" -l
-  else
-    echo
-    print_warning "Automatic shell reload skipped (non-interactive session). Please open a new terminal."
-  fi
-fi
+print_warning "To use Node.js in this terminal, run:"
+echo "  export NVM_DIR=\"$HOME/.nvm\""
+echo "  . \"\$NVM_DIR/nvm.sh\""
+echo "  nvm use $NODE_VERSION"
+echo
+print_info "Future terminals will load Node.js automatically via your shell profile."
