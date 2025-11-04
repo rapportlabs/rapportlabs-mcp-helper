@@ -322,8 +322,9 @@ cat > "$CONFIG_FILE" << 'EOF'
     "notion": {
       "command": "npx",
       "args": [
+        "-y",
         "mcp-remote",
-        "https://notion-mcp.damoa.rapportlabs.dance/mcp"
+        "https://mcp.notion.com/mcp"
       ]
     },
     "bigquery": {

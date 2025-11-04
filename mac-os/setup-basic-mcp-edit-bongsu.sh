@@ -125,7 +125,6 @@ MCP_REMOTE_VERSION="0.1.18"
 
 MCP_SERVERS=(
   "rpwiki|https://rapportwiki-mcp.damoa.rapportlabs.dance/mcp"
-  "notion|https://notion-mcp.damoa.rapportlabs.dance/mcp"
   "bigquery|https://bigquery-mcp.damoa.rapportlabs.dance/mcp"
   "slack|https://slack-mcp.damoa.rapportlabs.dance/sse"
   "queenit|https://mcp.rapportlabs.kr/mcp"

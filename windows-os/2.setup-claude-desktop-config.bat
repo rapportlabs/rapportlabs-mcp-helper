@@ -34,8 +34,9 @@ echo     },
 echo     "notion": {
 echo       "command": "npx",
 echo       "args": [
+echo         "-y",
 echo         "mcp-remote",
-echo         "https://notion-mcp.damoa.rapportlabs.dance/mcp"
+echo         "https://mcp.notion.com/mcp"
 echo       ]
 echo     },
 echo     "bq": {
