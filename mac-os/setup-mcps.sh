@@ -7,6 +7,7 @@ MCP_REMOTE_VERSION="0.1.18"
 SERVERS=(
   "rpwiki|https://rapportwiki-mcp.damoa.rapportlabs.dance/mcp"
   "bigquery|https://bigquery-mcp.damoa.rapportlabs.dance/mcp"
+  "notion|https://mcp.notion.com/mcp"
   "slack|https://slack-mcp.damoa.rapportlabs.dance/sse"
   "queenit|https://mcp.rapportlabs.kr/mcp"
 )
@@ -110,9 +111,25 @@ else
   warn "⚠️ Node/npm 미설치 → CLI 등록은 생략, 설정파일만 업데이트됨"
 fi
 
+# 5) Antigravity
+ANTIGRAVITY_CFG="$HOME/.gemini/antigravity/mcp_config.json"
+if [[ -d "$(dirname "$ANTIGRAVITY_CFG")" ]]; then
+  merge_json "$ANTIGRAVITY_CFG" "npx-remote"
+  ok "→ Antigravity 업데이트 완료"
+fi
+
+# 6) Kiro
+KIRO_CFG="$HOME/.kiro/settings/mcp.json"
+if [[ -d "$(dirname "$KIRO_CFG")" ]]; then
+  merge_json "$KIRO_CFG" "npx-remote"
+  ok "→ Kiro 업데이트 완료"
+fi
+
 echo
 ok "완료 🎉"
 echo "• Claude Desktop: $CLAUDE_CFG"
 echo "• Cursor:         $CURSOR_CFG"
 echo "• Codex:          $CODEX_CFG"
+[[ -f "$ANTIGRAVITY_CFG" ]] && echo "• Antigravity:    $ANTIGRAVITY_CFG"
+[[ -f "$KIRO_CFG" ]] && echo "• Kiro:           $KIRO_CFG"
 echo "각 앱을 재시작하세요."

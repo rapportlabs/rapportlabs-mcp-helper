@@ -31,19 +31,18 @@ echo         "mcp-remote",
 echo         "https://rapportwiki-mcp.damoa.rapportlabs.dance/mcp"
 echo       ]
 echo     },
-echo     "notion": {
-echo       "command": "npx",
-echo       "args": [
-echo         "-y",
-echo         "mcp-remote",
-echo         "https://mcp.notion.com/mcp"
-echo       ]
-echo     },
 echo     "bq": {
 echo       "command": "npx",
 echo       "args": [
 echo         "mcp-remote",
 echo         "https://bigquery-mcp.damoa.rapportlabs.dance/mcp"
+echo       ]
+echo     },
+echo     "notion": {
+echo       "command": "npx",
+echo       "args": [
+echo         "mcp-remote",
+echo         "https://mcp.notion.com/mcp"
 echo       ]
 echo     },
 echo     "slack": {
@@ -63,6 +62,106 @@ echo     }
 echo   }
 echo }
 ) > "%CONFIG_FILE%"
+
+:: Setup Antigravity
+set "ANTIGRAVITY_DIR=%USERPROFILE%\.gemini\antigravity"
+set "ANTIGRAVITY_FILE=%ANTIGRAVITY_DIR%\mcp_config.json"
+if exist "%ANTIGRAVITY_DIR%" (
+    echo Writing MCP configuration to %ANTIGRAVITY_FILE%...
+    (
+    echo {
+    echo   "mcpServers": {
+    echo     "rpwiki": {
+    echo       "command": "npx",
+    echo       "args": [
+    echo         "mcp-remote",
+    echo         "https://rapportwiki-mcp.damoa.rapportlabs.dance/mcp"
+    echo       ]
+    echo     },
+    echo     "bq": {
+    echo       "command": "npx",
+    echo       "args": [
+    echo         "mcp-remote",
+    echo         "https://bigquery-mcp.damoa.rapportlabs.dance/mcp"
+    echo       ]
+    echo     },
+    echo     "notion": {
+    echo       "command": "npx",
+    echo       "args": [
+    echo         "mcp-remote",
+    echo         "https://mcp.notion.com/mcp"
+    echo       ]
+    echo     },
+    echo     "slack": {
+    echo       "command": "npx",
+    echo       "args": [
+    echo         "mcp-remote",
+    echo         "https://slack-mcp.damoa.rapportlabs.dance/sse"
+    echo       ]
+    echo     },
+    echo     "queenit": {
+    echo       "command": "npx",
+    echo       "args": [
+    echo         "mcp-remote",
+    echo         "https://mcp.rapportlabs.kr/mcp"
+    echo       ]
+    echo     }
+    echo   }
+    echo }
+    ) > "%ANTIGRAVITY_FILE%"
+    echo Antigravity configuration updated.
+)
+
+:: Setup Kiro
+set "KIRO_BASE_DIR=%USERPROFILE%\.kiro"
+set "KIRO_DIR=%KIRO_BASE_DIR%\settings"
+set "KIRO_FILE=%KIRO_DIR%\mcp.json"
+if exist "%KIRO_BASE_DIR%" (
+    if not exist "%KIRO_DIR%" mkdir "%KIRO_DIR%"
+    echo Writing MCP configuration to %KIRO_FILE%...
+    (
+    echo {
+    echo   "mcpServers": {
+    echo     "rpwiki": {
+    echo       "command": "npx",
+    echo       "args": [
+    echo         "mcp-remote",
+    echo         "https://rapportwiki-mcp.damoa.rapportlabs.dance/mcp"
+    echo       ]
+    echo     },
+    echo     "bq": {
+    echo       "command": "npx",
+    echo       "args": [
+    echo         "mcp-remote",
+    echo         "https://bigquery-mcp.damoa.rapportlabs.dance/mcp"
+    echo       ]
+    echo     },
+    echo     "notion": {
+    echo       "command": "npx",
+    echo       "args": [
+    echo         "mcp-remote",
+    echo         "https://mcp.notion.com/mcp"
+    echo       ]
+    echo     },
+    echo     "slack": {
+    echo       "command": "npx",
+    echo       "args": [
+    echo         "mcp-remote",
+    echo         "https://slack-mcp.damoa.rapportlabs.dance/sse"
+    echo       ]
+    echo     },
+    echo     "queenit": {
+    echo       "command": "npx",
+    echo       "args": [
+    echo         "mcp-remote",
+    echo         "https://mcp.rapportlabs.kr/mcp"
+    echo       ]
+    echo     }
+    echo   }
+    echo }
+    ) > "%KIRO_FILE%"
+    echo Kiro configuration updated.
+)
 
 if !errorlevel! equ 0 (
     echo.
