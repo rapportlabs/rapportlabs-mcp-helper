@@ -9,7 +9,6 @@ SERVERS=(
   "bigquery|https://bigquery-mcp.damoa.rapportlabs.dance/mcp"
   "notion|https://mcp.notion.com/mcp"
   "slack|https://slack-mcp.damoa.rapportlabs.dance/sse"
-  "queenit|https://mcp.rapportlabs.kr/mcp"
 )
 
 HAS_NODE=0; command -v node >/dev/null 2>&1 && HAS_NODE=1

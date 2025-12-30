@@ -51,12 +51,6 @@ echo       "args": [
 echo         "mcp-remote",
 echo         "https://slack-mcp.damoa.rapportlabs.dance/sse"
 echo       ]
-echo     },
-echo     "queenit": {
-echo       "command": "npx",
-echo       "args": [
-echo         "mcp-remote",
-echo         "https://mcp.rapportlabs.kr/mcp"
 echo       ]
 echo     }
 echo   }
@@ -97,13 +91,6 @@ if exist "%ANTIGRAVITY_DIR%" (
     echo       "args": [
     echo         "mcp-remote",
     echo         "https://slack-mcp.damoa.rapportlabs.dance/sse"
-    echo       ]
-    echo     },
-    echo     "queenit": {
-    echo       "command": "npx",
-    echo       "args": [
-    echo         "mcp-remote",
-    echo         "https://mcp.rapportlabs.kr/mcp"
     echo       ]
     echo     }
     echo   }
@@ -149,13 +136,6 @@ if exist "%KIRO_BASE_DIR%" (
     echo         "mcp-remote",
     echo         "https://slack-mcp.damoa.rapportlabs.dance/sse"
     echo       ]
-    echo     },
-    echo     "queenit": {
-    echo       "command": "npx",
-    echo       "args": [
-    echo         "mcp-remote",
-    echo         "https://mcp.rapportlabs.kr/mcp"
-    echo       ]
     echo     }
     echo   }
     echo }
@@ -173,7 +153,6 @@ if !errorlevel! equ 0 (
     echo - notion: https://notion-mcp.damoa.rapportlabs.dance/mcp
     echo - bq: https://bigquery-mcp.damoa.rapportlabs.dance/mcp
     echo - slack: https://slack-mcp.damoa.rapportlabs.dance/sse
-    echo - queenit: https://mcp.rapportlabs.kr/mcp
     echo.
     echo Please restart Claude Desktop for the changes to take effect.
 ) else (

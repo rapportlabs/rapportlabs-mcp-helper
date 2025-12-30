@@ -1,18 +1,4 @@
 {
   "mcpServers": {
-    "rpls": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "https://agentgateway.damoa.rapportlabs.dance/mcp"
-      ]
-    },
-    "queenit": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "https://mcp.rapportlabs.kr/mcp"
-      ]
-    }
   }
 }

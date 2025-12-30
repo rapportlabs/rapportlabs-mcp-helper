@@ -340,13 +340,6 @@ cat > "$CONFIG_FILE" << 'EOF'
         "mcp-remote",
         "https://slack-mcp.damoa.rapportlabs.dance/sse"
       ]
-    },
-    "queenit": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "https://mcp.rapportlabs.kr/mcp"
-      ]
     }
   }
 }
@@ -382,8 +375,7 @@ echo "MCP Configuration:"
 echo "------------------"
 echo "Config file: $CONFIG_FILE"
 echo "Configured servers:"
-echo "  - rpls: https://agentgateway.damoa.rapportlabs.dance/mcp"
-echo "  - queenit: https://mcp.rapportlabs.kr/mcp"
+echo "  - rpwiki: https://rapportwiki-mcp.damoa.rapportlabs.dance/mcp"
 echo
 
 print_success "========================================"
