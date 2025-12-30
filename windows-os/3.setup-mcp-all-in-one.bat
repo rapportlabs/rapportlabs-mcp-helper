@@ -1,23 +1,32 @@
 @echo off
 setlocal
 chcp 65001 >nul
-echo [MCP All-in-One Setup] 스크립트를 준비 중입니다...
 
-:: PowerShell 파트 추출 및 실행
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$script = (Get-Content -LiteralPath '%~f0' -Raw -Encoding UTF8); $start = $script.IndexOf('<# POWERSHELL_START #>'); if ($start -ge 0) { iex $script.Substring($start) } else { Write-Error '스크립트 시작 표식을 찾을 수 없습니다.' }"
+echo ============================================================
+echo        [MCP All-in-One Setup] Running...
+echo ============================================================
+
+:: Robustly extract and run the PowerShell section (starting after ###PS_START###)
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$f=$false; Get-Content -LiteralPath '%~f0' -Encoding UTF8 | ForEach-Object { if($f){ $_ } elseif($_ -eq '###PS_START###'){ $f=$true } } | Out-String | Invoke-Expression"
 
 if %errorlevel% neq 0 (
     echo.
-    echo [오류] 스크립트 실행 중 문제가 발생했습니다.
+    echo [Error] Script execution failed. (Code: %errorlevel%)
+) else (
+    echo.
+    echo [Success] Setup completed successfully.
 )
 
-pause
+echo.
+echo Press any key to exit...
+pause >nul
 goto :eof
 
-<# POWERSHELL_START #>
+###PS_START###
 $ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-# --- 서버 목록 ---
+# Servers to add
 $servers = @(
   @{ name='rpwiki';   url='https://rapportwiki-mcp.damoa.rapportlabs.dance/mcp' },
   @{ name='notion';   url='https://notion-mcp.damoa.rapportlabs.dance/mcp' },
@@ -32,26 +41,45 @@ function Cyan($m){ Write-Host $m -ForegroundColor Cyan }
 function Yellow($m){ Write-Host $m -ForegroundColor Yellow }
 function Red($m){ Write-Host $m -ForegroundColor Red }
 
-# --- JSON 설정파일 병합 유틸 ---
 function Update-JsonConfig {
-  param([string]$Path, [ValidateSet('npx-remote','url')][string]$Strategy)
+  param([string]$Path, [string]$Strategy)
+  
+  Write-Host "--- 설정 업데이트: $(Split-Path $Path -Leaf) ---" -Cyan
   
   $dir = Split-Path $Path -Parent
   if (-not (Test-Path $dir)) { 
-    try { New-Item -ItemType Directory $dir -Force | Out-Null } catch { Red "폴더를 생성할 수 없습니다: $dir"; return }
+    try { New-Item -ItemType Directory $dir -Force | Out-Null } catch { Red "  폴더 생성 불가: $dir"; return }
   }
   
+  $obj = $null
   if (Test-Path $Path) {
-    try { Copy-Item $Path "$Path.backup.$(Get-Date -Format 'yyyyMMdd_HHmmss')" -ErrorAction SilentlyContinue } catch {}
-    $obj = Get-Content $Path -Raw -Encoding UTF8 | ConvertFrom-Json
+    try { 
+        $backup = "$Path.backup.$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+        Copy-Item $Path $backup -ErrorAction Stop
+        Yellow "  백업 생성: $(Split-Path $backup -Leaf)"
+        
+        $content = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
+        if ([string]::IsNullOrWhiteSpace($content)) {
+            $obj = [PSCustomObject]@{ mcpServers = [PSCustomObject]@{} }
+        } else {
+            $obj = $content | ConvertFrom-Json
+            if (-not $obj.mcpServers) { 
+                if ($obj.PSObject.Properties.Name -contains 'mcpServers') { $obj.mcpServers = [PSCustomObject]@{} }
+                else { $obj | Add-Member -Name mcpServers -Value ([PSCustomObject]@{}) -MemberType NoteProperty }
+            }
+        }
+    } catch { 
+        Red "  파일 읽기 오류(초기화): $_"
+        $obj = [PSCustomObject]@{ mcpServers = [PSCustomObject]@{} }
+    }
   } else {
     $obj = [PSCustomObject]@{ mcpServers = [PSCustomObject]@{} }
   }
   
-  if (-not $obj.mcpServers) { $obj | Add-Member -Name mcpServers -Value ([PSCustomObject]@{}) -MemberType NoteProperty }
-
+  $added = 0
   foreach ($s in $servers) {
     $url = $s.url; $exists = $false
+    
     foreach ($prop in $obj.mcpServers.PSObject.Properties) {
       $v = $prop.Value
       if ($v -and ($v.url -eq $url -or ($v.args -and ($v.args -contains $url)))) { $exists = $true; break }
@@ -63,64 +91,62 @@ function Update-JsonConfig {
     
     if ($Strategy -eq 'npx-remote') {
       $obj.mcpServers | Add-Member -Name $final -MemberType NoteProperty -Value ([PSCustomObject]@{
-        command = 'npx'
-        args = @('-y', 'mcp-remote', $url)
+        command = 'npx'; args = @('-y', 'mcp-remote', $url)
       })
     } else {
       $obj.mcpServers | Add-Member -Name $final -MemberType NoteProperty -Value ([PSCustomObject]@{ url = $url })
     }
+    Green "  [+] 추가: $final"
+    $added++
   }
 
-  # 표준 JSON 변환 (들여쓰기 포함)
-  $jsonFormatted = $obj | ConvertTo-Json -Depth 10
-  $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-  try { 
-    [System.IO.File]::WriteAllText($Path, $jsonFormatted, $utf8NoBom)
-    Green "→ $Path 업데이트 완료"
-  } catch { 
-    Red "파일을 저장할 수 없습니다 (권한 필요): $Path" 
+  if ($added -gt 0) {
+    $json = $obj | ConvertTo-Json -Depth 10
+    [System.IO.File]::WriteAllText($Path, $json, (New-Object System.Text.UTF8Encoding $false))
+    Green "  → 업데이트 성공!"
+  } else {
+    Yellow "  변경 사항 없음 (이미 세팅됨)."
   }
+  Write-Host ""
 }
 
-Write-Host "`n========================================"
-Write-Host "MCP All-in-One Setup (Windows)"
-Write-Host "========================================`n"
+try {
+    # 1) Claude Desktop
+    Update-JsonConfig (Join-Path $env:APPDATA 'Claude\claude_desktop_config.json') 'npx-remote'
+    # 2) Cursor
+    Update-JsonConfig (Join-Path $env:USERPROFILE '.cursor\mcp.json') 'url'
+    # 3) Antigravity
+    Update-JsonConfig (Join-Path $env:USERPROFILE '.gemini\antigravity\mcp_config.json') 'npx-remote'
+    # 4) Kiro
+    Update-JsonConfig (Join-Path $env:USERPROFILE '.kiro\settings\mcp.json') 'npx-remote'
 
-# 1) Claude Desktop
-$ClaudeCfg = Join-Path $env:APPDATA 'Claude\claude_desktop_config.json'
-Update-JsonConfig $ClaudeCfg 'npx-remote'
-
-# 2) Cursor
-$CursorCfg = Join-Path $env:USERPROFILE '.cursor\mcp.json'
-Update-JsonConfig $CursorCfg 'url'
-
-# 3) Antigravity
-$AntigravityCfg = Join-Path $env:USERPROFILE '.gemini\antigravity\mcp_config.json'
-Update-JsonConfig $AntigravityCfg 'npx-remote'
-
-# 4) Kiro
-$KiroCfg = Join-Path $env:USERPROFILE '.kiro\settings\mcp.json'
-Update-JsonConfig $KiroCfg 'npx-remote'
-
-# 5) Claude Code
-$hasNode = (Get-Command node -ErrorAction SilentlyContinue) -ne $null
-$hasNpm  = (Get-Command npm -ErrorAction SilentlyContinue) -ne $null
-if ($hasNode -and $hasNpm) {
-  Cyan "`nnpm 전역 패키지 및 Claude Code 등록 시도..."
-  try { npm i -g "mcp-remote@$McpRemoteVersion" | Out-Null } catch {}
-  try { npm i -g @anthropic-ai/claude-code | Out-Null } catch {}
-  
-  $claude = Get-Command claude -ErrorAction SilentlyContinue
-  $CLAUDE_CMD = if ($claude) { "claude" } else { "npx -y @anthropic-ai/claude-code" }
-  
-  try { $existing = & $env:ComSpec /c "$CLAUDE_CMD mcp list" 2>$null } catch { $existing = "" }
-  foreach ($s in $servers) {
-    if ($existing -and ($existing -like "*$($s.url)*")) { continue }
-    & $env:ComSpec /c "$CLAUDE_CMD mcp add $($s.name) --scope user -- npx -y mcp-remote $($s.url)" 1>$null 2>$null
-  }
-  Green "→ Claude Code 등록 완료"
-} else {
-  Yellow "`nNode.js/npm이 없어 Claude Code 자동 등록은 생략합니다."
+    # 5) Claude Code
+    Cyan "Node.js 기반 Claude Code 체크 중..."
+    if ((Get-Command node -ErrorAction SilentlyContinue) -and (Get-Command npm -ErrorAction SilentlyContinue)) {
+      try { 
+        Write-Host "  mcp-remote 설치..." -NoNewline
+        npm i -g "mcp-remote@$McpRemoteVersion" 2>$null | Out-Null
+        Green " [Done]"
+        
+        Write-Host "  claude-code 설치..." -NoNewline
+        npm i -g @anthropic-ai/claude-code 2>$null | Out-Null
+        Green " [Done]"
+        
+        $c = if (Get-Command claude -ErrorAction SilentlyContinue) { "claude" } else { "npx -y @anthropic-ai/claude-code" }
+        $list = & $env:ComSpec /c "$c mcp list" 2>$null
+        
+        $codeAdded = 0
+        foreach ($s in $servers) {
+          if ($list -and ($list -like "*$($s.url)*")) { continue }
+          & $env:ComSpec /c "$c mcp add $($s.name) --scope user -- npx -y mcp-remote $($s.url)" 1>$null 2>$null
+          $codeAdded++
+        }
+        if ($codeAdded -gt 0) { Green "→ Claude Code 설정 완료 ($codeAdded 개 추가)" }
+        else { Yellow "→ Claude Code 이미 설정됨" }
+      } catch { Yellow "  Claude Code 설정 중 일부 오류 발생 (무시 가능)" }
+    } else {
+      Yellow "  Node.js를 찾을 수 없어 Claude Code 설정은 건너뜁니다."
+    }
+} catch {
+    Red "`n[!!] 실행 중 오류 발생: $($_.Exception.Message)"
 }
-
-Write-Host "`n작업이 모두 완료되었습니다."
