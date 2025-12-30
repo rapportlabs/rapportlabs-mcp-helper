@@ -1,18 +1,28 @@
 @echo off
+setlocal
+chcp 65001 >nul
 echo [MCP All-in-One Setup] 스크립트를 준비 중입니다...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "iex ((Get-Content -LiteralPath '%~f0') | Select-Object -Skip 6 | Out-String)"
+
+:: PowerShell 파트 추출 및 실행
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$script = (Get-Content -LiteralPath '%~f0' -Raw -Encoding UTF8); $start = $script.IndexOf('<# POWERSHELL_START #>'); if ($start -ge 0) { iex $script.Substring($start) } else { Write-Error '스크립트 시작 표식을 찾을 수 없습니다.' }"
+
+if %errorlevel% neq 0 (
+    echo.
+    echo [오류] 스크립트 실행 중 문제가 발생했습니다.
+)
+
 pause
 goto :eof
 
-# ================== MCP All-in-One (PowerShell Part) ==================
+<# POWERSHELL_START #>
 $ErrorActionPreference = 'Stop'
 
 # --- 서버 목록 ---
 $servers = @(
-  @{ name='rpwiki';  url='https://rapportwiki-mcp.damoa.rapportlabs.dance/mcp' },
-  @{ name='notion';  url='https://notion-mcp.damoa.rapportlabs.dance/mcp' },
-  @{ name='bigquery';url='https://bigquery-mcp.damoa.rapportlabs.dance/mcp' },
-  @{ name='slack';   url='https://slack-mcp.damoa.rapportlabs.dance/sse' },
+  @{ name='rpwiki';   url='https://rapportwiki-mcp.damoa.rapportlabs.dance/mcp' },
+  @{ name='notion';   url='https://notion-mcp.damoa.rapportlabs.dance/mcp' },
+  @{ name='bigquery'; url='https://bigquery-mcp.damoa.rapportlabs.dance/mcp' },
+  @{ name='slack';    url='https://slack-mcp.damoa.rapportlabs.dance/sse' }
 )
 
 $McpRemoteVersion = '0.1.18'
@@ -22,41 +32,18 @@ function Cyan($m){ Write-Host $m -ForegroundColor Cyan }
 function Yellow($m){ Write-Host $m -ForegroundColor Yellow }
 function Red($m){ Write-Host $m -ForegroundColor Red }
 
-# --- JSON 포맷팅 함수 ---
-function Format-JsonIndent {
-  param([string]$json)
-  $indent = 0; $result = ""; $inString = $false; $escaped = $false
-  for ($i = 0; $i -lt $json.Length; $i++) {
-    $char = $json[$i]
-    if ($escaped) { $result += $char; $escaped = $false; continue }
-    if ($char -eq '\') { $escaped = $true; $result += $char; continue }
-    if ($char -eq '"') { $inString = -not $inString; $result += $char; continue }
-    if ($inString) { $result += $char; continue }
-    switch ($char) {
-      '{' { $result += "{`n"; $indent++; $result += "  " * $indent }
-      '}' { $result += "`n"; $indent--; $result += "  " * $indent + "}" }
-      '[' { $result += "[`n"; $indent++; $result += "  " * $indent }
-      ']' { $result += "`n"; $indent--; $result += "  " * $indent + "]" }
-      ',' { $result += ",`n"; $result += "  " * $indent }
-      ':' { $result += ": " }
-      default { if ($char -ne ' ' -and $char -ne "`t" -and $char -ne "`n" -and $char -ne "`r") { $result += $char } }
-    }
-  }
-  return $result
-}
-
 # --- JSON 설정파일 병합 유틸 ---
 function Update-JsonConfig {
   param([string]$Path, [ValidateSet('npx-remote','url')][string]$Strategy)
+  
   $dir = Split-Path $Path -Parent
   if (-not (Test-Path $dir)) { 
-    try { New-Item -ItemType Directory $dir -Force | Out-Null } catch {}
+    try { New-Item -ItemType Directory $dir -Force | Out-Null } catch { Red "폴더를 생성할 수 없습니다: $dir"; return }
   }
   
   if (Test-Path $Path) {
     try { Copy-Item $Path "$Path.backup.$(Get-Date -Format 'yyyyMMdd_HHmmss')" -ErrorAction SilentlyContinue } catch {}
-    $json = Get-Content $Path -Raw -Encoding UTF8
-    $obj = $json | ConvertFrom-Json
+    $obj = Get-Content $Path -Raw -Encoding UTF8 | ConvertFrom-Json
   } else {
     $obj = [PSCustomObject]@{ mcpServers = [PSCustomObject]@{} }
   }
@@ -70,6 +57,7 @@ function Update-JsonConfig {
       if ($v -and ($v.url -eq $url -or ($v.args -and ($v.args -contains $url)))) { $exists = $true; break }
     }
     if ($exists) { continue }
+    
     $name = $s.name; $final = $name; $i = 2
     while ($obj.mcpServers.PSObject.Properties.Name -contains $final) { $final = "$name-$i"; $i++ }
     
@@ -83,14 +71,18 @@ function Update-JsonConfig {
     }
   }
 
-  $jsonRaw = $obj | ConvertTo-Json -Depth 10 -Compress
-  $jsonFormatted = Format-JsonIndent $jsonRaw
+  # 표준 JSON 변환 (들여쓰기 포함)
+  $jsonFormatted = $obj | ConvertTo-Json -Depth 10
   $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-  try { [System.IO.File]::WriteAllText($Path, $jsonFormatted, $utf8NoBom) } catch { Red "관리자 권한이 필요할 수 있습니다: $Path" }
-  Green "→ $Path 업데이트 완료"
+  try { 
+    [System.IO.File]::WriteAllText($Path, $jsonFormatted, $utf8NoBom)
+    Green "→ $Path 업데이트 완료"
+  } catch { 
+    Red "파일을 저장할 수 없습니다 (권한 필요): $Path" 
+  }
 }
 
-Write-Host "========================================"
+Write-Host "`n========================================"
 Write-Host "MCP All-in-One Setup (Windows)"
 Write-Host "========================================`n"
 
@@ -112,7 +104,7 @@ Update-JsonConfig $KiroCfg 'npx-remote'
 
 # 5) Claude Code
 $hasNode = (Get-Command node -ErrorAction SilentlyContinue) -ne $null
-$hasNpm  = (Get-Command npm  -ErrorAction SilentlyContinue) -ne $null
+$hasNpm  = (Get-Command npm -ErrorAction SilentlyContinue) -ne $null
 if ($hasNode -and $hasNpm) {
   Cyan "`nnpm 전역 패키지 및 Claude Code 등록 시도..."
   try { npm i -g "mcp-remote@$McpRemoteVersion" | Out-Null } catch {}
