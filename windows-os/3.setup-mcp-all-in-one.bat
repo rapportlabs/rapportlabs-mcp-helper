@@ -1,17 +1,35 @@
 @echo off
-setlocal
-chcp 65001 >nul
+setlocal EnableDelayedExpansion
+chcp 65001 >nul 2>&1
 
 echo ============================================================
 echo        [MCP All-in-One Setup] Running...
 echo ============================================================
+echo.
 
-:: Robustly extract and run the PowerShell section (starting after ###PS_START###)
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$f=$false; Get-Content -LiteralPath '%~f0' -Encoding UTF8 | ForEach-Object { if($f){ $_ } elseif($_ -eq '###PS_START###'){ $f=$true } } | Out-String | Invoke-Expression"
+:: Create temp PS1 file (avoids Korean path issues)
+set "TEMP_PS1=%TEMP%\mcp_setup_%RANDOM%.ps1"
 
-if %errorlevel% neq 0 (
+:: Extract PowerShell section to temp file
+set "extracting="
+(for /f "usebackq delims=" %%L in ("%~f0") do (
+    if defined extracting (
+        echo(%%L
+    ) else (
+        echo(%%L | findstr /C:"###PS_START###" >nul && set "extracting=1"
+    )
+)) > "%TEMP_PS1%" 2>nul
+
+:: Run PowerShell script from temp location
+powershell -NoProfile -ExecutionPolicy Bypass -File "%TEMP_PS1%"
+set "EXITCODE=%errorlevel%"
+
+:: Cleanup
+del /f /q "%TEMP_PS1%" >nul 2>&1
+
+if %EXITCODE% neq 0 (
     echo.
-    echo [Error] Script execution failed. (Code: %errorlevel%)
+    echo [Error] Script execution failed. (Code: %EXITCODE%)
 ) else (
     echo.
     echo [Success] Setup completed successfully.
@@ -25,6 +43,13 @@ goto :eof
 ###PS_START###
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
+# Check PowerShell version
+if ($PSVersionTable.PSVersion.Major -lt 3) {
+    Write-Host "[Error] PowerShell 3.0+ required. Current: $($PSVersionTable.PSVersion)" -ForegroundColor Red
+    exit 1
+}
 
 # Servers to add
 $servers = @(
@@ -44,11 +69,12 @@ function Red($m){ Write-Host $m -ForegroundColor Red }
 function Update-JsonConfig {
   param([string]$Path, [string]$Strategy)
   
-  Write-Host "--- 설정 업데이트: $(Split-Path $Path -Leaf) ---" -Cyan
+  Cyan "--- Setting: $(Split-Path $Path -Leaf) ---"
   
   $dir = Split-Path $Path -Parent
   if (-not (Test-Path $dir)) { 
-    try { New-Item -ItemType Directory $dir -Force | Out-Null } catch { Red "  폴더 생성 불가: $dir"; return }
+    try { New-Item -ItemType Directory $dir -Force | Out-Null } 
+    catch { Red "  Cannot create folder: $dir"; return }
   }
   
   $obj = $null
@@ -56,7 +82,7 @@ function Update-JsonConfig {
     try { 
         $backup = "$Path.backup.$(Get-Date -Format 'yyyyMMdd_HHmmss')"
         Copy-Item $Path $backup -ErrorAction Stop
-        Yellow "  백업 생성: $(Split-Path $backup -Leaf)"
+        Yellow "  Backup: $(Split-Path $backup -Leaf)"
         
         $content = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
         if ([string]::IsNullOrWhiteSpace($content)) {
@@ -69,7 +95,7 @@ function Update-JsonConfig {
             }
         }
     } catch { 
-        Red "  파일 읽기 오류(초기화): $_"
+        Red "  Read error (init): $_"
         $obj = [PSCustomObject]@{ mcpServers = [PSCustomObject]@{} }
     }
   } else {
@@ -96,16 +122,25 @@ function Update-JsonConfig {
     } else {
       $obj.mcpServers | Add-Member -Name $final -MemberType NoteProperty -Value ([PSCustomObject]@{ url = $url })
     }
-    Green "  [+] 추가: $final"
+    Green "  [+] Added: $final"
     $added++
   }
 
   if ($added -gt 0) {
+    # Check if file is locked
+    try {
+      $fs = [System.IO.File]::Open($Path, 'OpenOrCreate', 'ReadWrite', 'None')
+      $fs.Close()
+    } catch {
+      Red "  File is locked! Close the app using this config first."
+      return
+    }
+    
     $json = $obj | ConvertTo-Json -Depth 10
     [System.IO.File]::WriteAllText($Path, $json, (New-Object System.Text.UTF8Encoding $false))
-    Green "  → 업데이트 성공!"
+    Green "  -> Updated!"
   } else {
-    Yellow "  변경 사항 없음 (이미 세팅됨)."
+    Yellow "  No changes (already configured)."
   }
   Write-Host ""
 }
@@ -121,32 +156,64 @@ try {
     Update-JsonConfig (Join-Path $env:USERPROFILE '.kiro\settings\mcp.json') 'npx-remote'
 
     # 5) Claude Code
-    Cyan "Node.js 기반 Claude Code 체크 중..."
-    if ((Get-Command node -ErrorAction SilentlyContinue) -and (Get-Command npm -ErrorAction SilentlyContinue)) {
+    Cyan "Checking Node.js for Claude Code..."
+    $nodePath = $null
+    $npmPath = $null
+    
+    # Try to find node in common locations
+    $searchPaths = @(
+        (Get-Command node -ErrorAction SilentlyContinue).Source,
+        "$env:ProgramFiles\nodejs\node.exe",
+        "${env:ProgramFiles(x86)}\nodejs\node.exe",
+        "$env:LOCALAPPDATA\Programs\nodejs\node.exe"
+    ) | Where-Object { $_ -and (Test-Path $_) }
+    
+    if ($searchPaths) {
+        $nodePath = $searchPaths[0]
+        $npmPath = Join-Path (Split-Path $nodePath) 'npm.cmd'
+        if (-not (Test-Path $npmPath)) { $npmPath = $null }
+    }
+    
+    if ($nodePath -and $npmPath) {
       try { 
-        Write-Host "  mcp-remote 설치..." -NoNewline
-        npm i -g "mcp-remote@$McpRemoteVersion" 2>$null | Out-Null
+        Write-Host "  Installing mcp-remote..." -NoNewline
+        & $npmPath i -g "mcp-remote@$McpRemoteVersion" 2>$null | Out-Null
         Green " [Done]"
         
-        Write-Host "  claude-code 설치..." -NoNewline
-        npm i -g @anthropic-ai/claude-code 2>$null | Out-Null
+        Write-Host "  Installing claude-code..." -NoNewline
+        & $npmPath i -g @anthropic-ai/claude-code 2>$null | Out-Null
         Green " [Done]"
         
-        $c = if (Get-Command claude -ErrorAction SilentlyContinue) { "claude" } else { "npx -y @anthropic-ai/claude-code" }
-        $list = & $env:ComSpec /c "$c mcp list" 2>$null
+        $claudeCmd = Get-Command claude -ErrorAction SilentlyContinue
+        if ($claudeCmd) {
+            $c = $claudeCmd.Source
+        } else {
+            Yellow " (claude not in PATH, skipping mcp add)"
+            throw "skip"
+        }
+        
+        $list = & $c mcp list 2>$null
         
         $codeAdded = 0
         foreach ($s in $servers) {
           if ($list -and ($list -like "*$($s.url)*")) { continue }
-          & $env:ComSpec /c "$c mcp add $($s.name) --scope user -- npx -y mcp-remote $($s.url)" 1>$null 2>$null
+          & $c mcp add $s.name --scope user -- npx -y mcp-remote $s.url 2>$null | Out-Null
           $codeAdded++
         }
-        if ($codeAdded -gt 0) { Green "→ Claude Code 설정 완료 ($codeAdded 개 추가)" }
-        else { Yellow "→ Claude Code 이미 설정됨" }
-      } catch { Yellow "  Claude Code 설정 중 일부 오류 발생 (무시 가능)" }
+        if ($codeAdded -gt 0) { Green "-> Claude Code configured ($codeAdded added)" }
+        else { Yellow "-> Claude Code already configured" }
+      } catch { 
+        if ($_.Exception.Message -ne "skip") {
+            Yellow "  Claude Code setup had issues (can be ignored)"
+        }
+      }
     } else {
-      Yellow "  Node.js를 찾을 수 없어 Claude Code 설정은 건너뜁니다."
+      Yellow "  Node.js not found. Skipping Claude Code setup."
     }
+    
+    Write-Host ""
+    Green "=== All done! ==="
 } catch {
-    Red "`n[!!] 실행 중 오류 발생: $($_.Exception.Message)"
+    Red "`n[!!] Error: $($_.Exception.Message)"
+    exit 1
 }
