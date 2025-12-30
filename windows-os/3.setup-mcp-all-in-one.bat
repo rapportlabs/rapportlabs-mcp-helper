@@ -1,20 +1,10 @@
-<# :
 @echo off
-setlocal
-echo [MCP Setup] 스크립트를 시작합니다...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "iex ((Get-Content -LiteralPath '%~f0') -join \"`n\")"
-if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] 설정 중 오류가 발생했습니다.
-) else (
-    echo.
-    echo [SUCCESS] 모든 설정이 완료되었습니다!
-)
+echo [MCP All-in-One Setup] 스크립트를 준비 중입니다...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iex ((Get-Content -LiteralPath '%~f0') | Select-Object -Skip 6 | Out-String)"
 pause
-exit /b
-#>
+goto :eof
 
-# ================== MCP All-in-One (Windows / Self-Contained) ==================
+# ================== MCP All-in-One (PowerShell Part) ==================
 $ErrorActionPreference = 'Stop'
 
 # --- 서버 목록 ---
@@ -59,10 +49,12 @@ function Format-JsonIndent {
 function Update-JsonConfig {
   param([string]$Path, [ValidateSet('npx-remote','url')][string]$Strategy)
   $dir = Split-Path $Path -Parent
-  if (-not (Test-Path $dir)) { New-Item -ItemType Directory $dir | Out-Null }
+  if (-not (Test-Path $dir)) { 
+    try { New-Item -ItemType Directory $dir -Force | Out-Null } catch {}
+  }
   
   if (Test-Path $Path) {
-    Copy-Item $Path "$Path.backup.$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+    try { Copy-Item $Path "$Path.backup.$(Get-Date -Format 'yyyyMMdd_HHmmss')" -ErrorAction SilentlyContinue } catch {}
     $json = Get-Content $Path -Raw -Encoding UTF8
     $obj = $json | ConvertFrom-Json
   } else {
@@ -75,7 +67,7 @@ function Update-JsonConfig {
     $url = $s.url; $exists = $false
     foreach ($prop in $obj.mcpServers.PSObject.Properties) {
       $v = $prop.Value
-      if (($v.url -eq $url) -or ($v.args -and ($v.args -contains $url))) { $exists = $true; break }
+      if ($v -and ($v.url -eq $url -or ($v.args -and ($v.args -contains $url)))) { $exists = $true; break }
     }
     if ($exists) { continue }
     $name = $s.name; $final = $name; $i = 2
@@ -94,7 +86,7 @@ function Update-JsonConfig {
   $jsonRaw = $obj | ConvertTo-Json -Depth 10 -Compress
   $jsonFormatted = Format-JsonIndent $jsonRaw
   $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-  [System.IO.File]::WriteAllText($Path, $jsonFormatted, $utf8NoBom)
+  try { [System.IO.File]::WriteAllText($Path, $jsonFormatted, $utf8NoBom) } catch { Red "관리자 권한이 필요할 수 있습니다: $Path" }
   Green "→ $Path 업데이트 완료"
 }
 
@@ -135,4 +127,8 @@ if ($hasNode -and $hasNpm) {
     & $env:ComSpec /c "$CLAUDE_CMD mcp add $($s.name) --scope user -- npx -y mcp-remote $($s.url)" 1>$null 2>$null
   }
   Green "→ Claude Code 등록 완료"
+} else {
+  Yellow "`nNode.js/npm이 없어 Claude Code 자동 등록은 생략합니다."
 }
+
+Write-Host "`n작업이 모두 완료되었습니다."
